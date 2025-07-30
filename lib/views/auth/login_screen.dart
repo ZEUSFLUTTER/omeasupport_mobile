@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:omeamobile/controllers/auth_controller.dart';
 import 'package:omeamobile/views/dashboard/technician_dashboard_screen.dart';
 import 'package:omeamobile/utils/app_colors.dart';
+import 'package:omeamobile/views/auth/register_screen.dart'; // Import RegisterScreen
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -19,7 +20,8 @@ class _LoginScreenState extends State<LoginScreen> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   bool _isPasswordVisible = false;
 
-  bool _isTechnicianSelected = true;
+  bool _isTechnicianSelected =
+      true; // This state is not directly used by the login method, but kept for UI consistency.
 
   @override
   void dispose() {
@@ -40,13 +42,14 @@ class _LoginScreenState extends State<LoginScreen> {
         _passwordController.text.trim(),
       );
 
-      // --- AJOUT IMPORTANT: Vérifier si le widget est toujours monté ---
       if (!mounted) {
-        return; // Sortir si le widget n'est plus dans l'arbre des widgets
+        return;
       }
-      // -----------------------------------------------------------------
 
       if (success) {
+        // Here, you might want to check the user's role and navigate accordingly.
+        // For now, it navigates to TechnicianDashboardScreen as per previous code.
+        // If you have a client dashboard, you would add logic here.
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
             builder: (context) => const TechnicianDashboardScreen(),
@@ -56,6 +59,7 @@ class _LoginScreenState extends State<LoginScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(authController.errorMessage ?? 'Erreur de connexion'),
+            backgroundColor: Colors.red, // Optional: red background for error
           ),
         );
       }
@@ -96,7 +100,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   style: TextStyle(fontSize: 16, color: Colors.grey),
                 ),
                 const SizedBox(height: 32),
-                // Section de sélection du rôle (Technicien/Client)
+                // Section de sélection du rôle (Technicien/Client) - Kept for visual consistency, but login doesn't use it directly
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -116,7 +120,6 @@ class _LoginScreenState extends State<LoginScreen> {
                             color: Theme.of(context).primaryColor,
                           ),
                           shape: const RoundedRectangleBorder(
-                            // Utiliser const pour optimiser
                             borderRadius: BorderRadius.only(
                               topLeft: Radius.circular(8),
                               bottomLeft: Radius.circular(8),
@@ -150,7 +153,6 @@ class _LoginScreenState extends State<LoginScreen> {
                             color: Theme.of(context).primaryColor,
                           ),
                           shape: const RoundedRectangleBorder(
-                            // Utiliser const pour optimiser
                             borderRadius: BorderRadius.only(
                               topRight: Radius.circular(8),
                               bottomRight: Radius.circular(8),
@@ -256,6 +258,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: TextButton(
                     onPressed: () {
                       // Gérer le mot de passe oublié
+                      // Navigator.of(context).push(MaterialPageRoute(builder: (context) => ForgotPasswordScreen()));
                     },
                     child: const Text('Mot de passe oublié ?'),
                   ),
@@ -310,6 +313,33 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                 ),
+                const SizedBox(height: 24),
+                // --- AJOUT IMPORTANT: Lien vers l'écran d'inscription ---
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const RegisterScreen(),
+                      ),
+                    );
+                  },
+                  child: Text.rich(
+                    TextSpan(
+                      text: 'Vous n\'avez pas de compte ? ',
+                      style: TextStyle(color: Colors.grey[700]),
+                      children: [
+                        TextSpan(
+                          text: 'Créer un compte',
+                          style: TextStyle(
+                            color: Theme.of(context).primaryColor,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                // --------------------------------------------------------
                 const SizedBox(height: 24),
                 Text.rich(
                   TextSpan(
