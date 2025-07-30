@@ -12,27 +12,51 @@ class ApiService {
 
   String? _authToken;
 
-  ApiService() {
+  // 1. L'instance statique unique du Singleton
+  static final ApiService _instance = ApiService._internal();
+
+  // 2. Le constructeur factory qui retourne l'instance unique
+  factory ApiService() {
+    return _instance;
+  }
+
+  // 3. Le constructeur privé nommé pour l'initialisation interne
+  // Il est important qu'il soit privé pour empêcher la création d'autres instances.
+  ApiService._internal() {
+    // Initialisation asynchrone du token au démarrage de l'application
+    // Il est crucial que cela soit géré correctement dans le flux de l'app.
+    // Idéalement, _loadAuthToken() devrait être appelé une fois au tout début
+    // de l'application (par exemple, dans main() ou un Splash Screen)
+    // et être attendu avant de permettre les requêtes authentifiées.
     _loadAuthToken();
   }
 
+  // Cette méthode charge le token depuis SharedPreferences
   Future<void> _loadAuthToken() async {
     final prefs = await SharedPreferences.getInstance();
     _authToken = prefs.getString(_authTokenKey);
     print('ApiService: Token chargé au démarrage: $_authToken');
   }
 
+  // Méthode publique pour s'assurer que le token est chargé avant toute opération.
+  // Utile si vous avez besoin de garantir que le token est disponible avant une requête.
+  Future<void> ensureTokenLoaded() async {
+    if (_authToken == null) {
+      await _loadAuthToken();
+    }
+  }
+
   Future<void> _saveAuthToken(String token) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_authTokenKey, token);
-    _authToken = token;
+    _authToken = token; // Mettre à jour l'authToken de cette instance Singleton
     print('ApiService: Token sauvegardé: $_authToken');
   }
 
   Future<void> clearAuthToken() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_authTokenKey);
-    _authToken = null;
+    _authToken = null; // Effacer l'authToken de cette instance Singleton
     print('ApiService: Token supprimé.');
   }
 
@@ -55,6 +79,11 @@ class ApiService {
     bool authorized = false,
   }) async {
     try {
+      // S'assurer que le token est chargé si la requête est autorisée
+      if (authorized) {
+        await ensureTokenLoaded();
+      }
+
       final url = Uri.parse('$_baseUrl/$endpoint');
       final headers = await _getHeaders(authorized: authorized);
       final response = await http.post(
@@ -72,8 +101,7 @@ class ApiService {
       if (response.statusCode >= 200 && response.statusCode < 300) {
         return {
           'success': true,
-          'data':
-              responseData['data'], // <= C'EST LA CLEF ! On extrait le contenu de 'data' de la réponse Laravel ici.
+          'data': responseData['data'],
           'message': responseData['message'] ?? 'Succès',
         };
       } else {
@@ -111,6 +139,11 @@ class ApiService {
     bool authorized = false,
   }) async {
     try {
+      // S'assurer que le token est chargé si la requête est autorisée
+      if (authorized) {
+        await ensureTokenLoaded();
+      }
+
       final url = Uri.parse('$_baseUrl/$endpoint');
       final headers = await _getHeaders(authorized: authorized);
       final response = await http.get(url, headers: headers);
@@ -124,7 +157,7 @@ class ApiService {
       if (response.statusCode >= 200 && response.statusCode < 300) {
         return {
           'success': true,
-          'data': responseData['data'], 
+          'data': responseData['data'],
           'message': responseData['message'] ?? 'Succès',
         };
       } else {
@@ -163,13 +196,14 @@ class ApiService {
       return response;
     }
 
-
     final Map<String, dynamic>? loginResponseData =
         response['data'] as Map<String, dynamic>?;
 
     if (loginResponseData != null && loginResponseData['token'] != null) {
       final String token = loginResponseData['token'];
-      await _saveAuthToken(token);
+      await _saveAuthToken(
+        token,
+      ); // Sauvegarde et met à jour l'instance Singleton
 
       final userProfileResponse = await getUserProfile();
 
@@ -206,9 +240,6 @@ class ApiService {
         };
       }
     } else {
-      // C'est ici que votre erreur "token manquant" se déclenche.
-      // Cela ne devrait arriver QUE si 'token' n'est pas directement sous 'data'
-      // ou si 'data' est null.
       return {
         'success': false,
         'message':
@@ -380,5 +411,25 @@ class ApiService {
 
   Future<Map<String, dynamic>> takeChargeOfTicket(String ticketId) async {
     return await _post('tickets/$ticketId/take_charge', {}, authorized: true);
+  }
+
+  // This is the createTicket method that should be used
+  Future<Map<String, dynamic>> createTicket({
+    required String typeProbleme,
+    required String description,
+    required String adresse,
+    required String
+    dateRdv, // YYYY-MM-DD format expected by Laravel date validation
+    List<String>? photosBase64, // List of base64 encoded image strings
+  }) async {
+    final body = {
+      'type_probleme': typeProbleme,
+      'description': description,
+      'adresse': adresse,
+      'date_rdv': dateRdv,
+      'photos': photosBase64 ?? [], // Send empty array if no photos
+    };
+    // Use the _post helper method directly. It handles URL, headers, and response parsing.
+    return await _post('tickets', body, authorized: true);
   }
 }

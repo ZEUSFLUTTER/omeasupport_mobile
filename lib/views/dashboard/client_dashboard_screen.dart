@@ -1,13 +1,15 @@
-// lib/views/dashboard/technician_dashboard_screen.dart
+// lib/views/dashboard/technician_dashboard_screen.dart (This file will now serve as the Client Dashboard)
 
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 import 'package:omeamobile/controllers/auth_controller.dart';
 import 'package:omeamobile/controllers/ticket_controller.dart';
 import 'package:omeamobile/models/ticket_model.dart';
 import 'package:omeamobile/models/user_model.dart';
-import 'package:omeamobile/views/tickets/ticket_screen.dart';
+import 'package:omeamobile/views/tickets/ticket_screen.dart'; // Assuming this can show client tickets too
 import 'package:omeamobile/views/profile/profile_screen.dart';
+import 'package:omeamobile/views/tickets/new_ticket.dart';
 
 class ClientDashboardScreen extends StatefulWidget {
   const ClientDashboardScreen({super.key});
@@ -17,25 +19,24 @@ class ClientDashboardScreen extends StatefulWidget {
 }
 
 class _ClientDashboardScreenState extends State<ClientDashboardScreen> {
-  int _selectedIndex = 0; // Pour la BottomNavigationBar
-  late List<Widget> _widgetOptions; // Liste des écrans
+  int _selectedIndex = 0; // For the BottomNavigationBar
+  late List<Widget> _widgetOptions; // List of screens
 
   @override
   void initState() {
     super.initState();
-    // Au démarrage du tableau de bord, charger les données
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<TicketController>(
         context,
         listen: false,
-      ).fetchDashboardData();
+      ).fetchDashboardData(); // This should fetch client-specific tickets
     });
 
     _widgetOptions = <Widget>[
-      _DashboardContent(), // Contenu principal du tableau de bord
-      TicketsScreen(), // Écran des tickets
-      const Center(child: Text('Historique')), // Écran de l'historique
-      ProfileScreen(), // Écran de profil
+      _DashboardContent(), // Main dashboard content for client
+      TicketsScreen(), // Tickets screen (might need to be client-specific)
+      const Center(child: Text('Historique')), // History screen
+      ProfileScreen(), // Profile screen
     ];
   }
 
@@ -47,11 +48,6 @@ class _ClientDashboardScreenState extends State<ClientDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // AuthController n'est plus directement utilisé dans le build ici,
-    // mais le reste de l'application en dépend.
-    // final authController = Provider.of<AuthController>(context);
-    // final user = authController.currentUser;
-
     return Scaffold(
       appBar: AppBar(
         toolbarHeight: 0,
@@ -78,12 +74,55 @@ class _ClientDashboardScreenState extends State<ClientDashboardScreen> {
         onTap: _onItemTapped,
         type: BottomNavigationBarType.fixed,
       ),
+      floatingActionButton:
+          _selectedIndex == 0
+              ? FloatingActionButton(
+                onPressed: () {
+                  // Correction ici : Utilisation standard de Navigator.push
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder:
+                          (context) =>
+                              const NewTicketScreen(), // Remplacez NewTicketScreen par le nom de votre écran de création de ticket
+                    ),
+                  );
+                },
+                backgroundColor: Theme.of(context).primaryColor,
+                child: const Icon(Icons.add, color: Colors.white),
+              )
+              : null,
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
 }
 
-// Widget pour le contenu du tableau de bord (partie supérieure de l'écran)
-class _DashboardContent extends StatelessWidget {
+class _DashboardContent extends StatefulWidget {
+  @override
+  State<_DashboardContent> createState() => _DashboardContentState();
+}
+
+class _DashboardContentState extends State<_DashboardContent>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 4, vsync: this);
+    _tabController.addListener(() {
+      // Potentially filter tickets based on the selected tab
+      // In a real app, you might trigger a new fetch or filter from the already fetched list
+      setState(() {}); // Rebuild to apply filter
+    });
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final authController = Provider.of<AuthController>(context);
@@ -94,46 +133,68 @@ class _DashboardContent extends StatelessWidget {
       return const Center(child: Text('Erreur: Utilisateur non connecté.'));
     }
 
-    // Calcul du nombre de notifications (par exemple, tickets en attente)
-    final int notificationCount = ticketController.pendingTickets.length;
+    // Filter tickets based on the current tab
+    List<Ticket> filteredTickets = [];
+    switch (_tabController.index) {
+      case 0: // Tous
+        filteredTickets = ticketController.allTickets;
+        break;
+      case 1: // En cours (In Progress)
+        filteredTickets =
+            ticketController.allTickets
+                .where((ticket) => ticket.status == TicketStatus.inProgress)
+                .toList();
+        break;
+      case 2: // En attente (Pending or inProgress/completed)
+        filteredTickets =
+            ticketController.allTickets
+                .where(
+                  (ticket) =>
+                      ticket.status == TicketStatus.pending ||
+                      ticket.status == TicketStatus.completed ||
+                      ticket.status == TicketStatus.inProgress,
+                )
+                .toList();
+        break;
+      case 3: // Terminé (Completed)
+        filteredTickets =
+            ticketController.allTickets
+                .where((ticket) => ticket.status == TicketStatus.completed)
+                .toList();
+        break;
+    }
+
+    // Calculate notification count (e.g., tickets 'En cours' + 'En attente')
+    final int notificationCount =
+        ticketController.allTickets
+            .where(
+              (ticket) =>
+                  ticket.status == TicketStatus.inProgress ||
+                  ticket.status == TicketStatus.pending ||
+                  ticket.status == TicketStatus.completed ||
+                  ticket.status == TicketStatus.inProgress,
+            )
+            .length;
 
     return RefreshIndicator(
       onRefresh: () => ticketController.fetchDashboardData(),
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildHeader(
-              context,
-              user,
-              notificationCount,
-            ), // Passer le nombre de notifications
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Aperçu du jour',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 16),
-                  _buildDailyOverviewGrid(context, ticketController),
-                  const SizedBox(height: 24),
-                  _buildActiveTicketCard(context, ticketController),
-                  const SizedBox(height: 24),
-                  const Text(
-                    'Tickets récents',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 16),
-                  _buildRecentTicketsList(context, ticketController),
-                ],
-              ),
+      child: Column(
+        children: [
+          _buildHeader(context, user, notificationCount),
+          _buildSearchBar(context),
+          _buildTicketFilterTabs(context),
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                _buildTicketListView(context, filteredTickets),
+                _buildTicketListView(context, filteredTickets),
+                _buildTicketListView(context, filteredTickets),
+                _buildTicketListView(context, filteredTickets),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -141,80 +202,71 @@ class _DashboardContent extends StatelessWidget {
   Widget _buildHeader(BuildContext context, User user, int notificationCount) {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-      color: Colors.white,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
+              // User avatar
+              CircleAvatar(
+                radius: 24,
+                backgroundColor: Theme.of(
+                  context,
+                ).primaryColor.withOpacity(0.1),
+                child: Icon(
+                  Icons.person,
+                  color: Theme.of(context).primaryColor,
+                ),
+              ),
+              const SizedBox(width: 12),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Bonjour,',
+                    'Bonjour ${user.nom.split(' ')[0]}', // Assuming nom contains first name
                     style: TextStyle(fontSize: 16, color: Colors.grey[700]),
                   ),
-                  Text(
-                    user.nom,
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.location_on_outlined,
-                        size: 16,
-                        color: Colors.grey[600],
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        user.ville,
-                        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                      ),
-                    ],
+                  const Text(
+                    'Client', // As seen in the image
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
                 ],
               ),
-              // Bouton avec icône et notifications
+            ],
+          ),
+          // Notification and Settings Icons
+          Row(
+            children: [
               Stack(
                 children: [
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).primaryColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
+                  IconButton(
+                    icon: Icon(
+                      Icons.notifications_none_outlined,
+                      color: Theme.of(context).colorScheme.onSurface,
+                      size: 28,
                     ),
-                    child: Icon(
-                      Icons
-                          .notifications_none_outlined, // Icône de notification
-                      color: Theme.of(context).primaryColor,
-                    ),
+                    onPressed: () {
+                      // Handle notification tap
+                    },
                   ),
-                  if (notificationCount >
-                      0) // Afficher la bulle seulement s'il y a des notifications
+                  if (notificationCount > 0)
                     Positioned(
-                      right: 0,
-                      top: 0,
+                      right: 8,
+                      top: 8,
                       child: Container(
                         padding: const EdgeInsets.all(4),
                         decoration: BoxDecoration(
-                          color: Colors.red, // Couleur de notification
+                          color: Colors.red,
                           shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 2),
+                          border: Border.all(color: Colors.white, width: 1),
                         ),
                         constraints: const BoxConstraints(
-                          minWidth: 20,
-                          minHeight: 20,
+                          minWidth: 18,
+                          minHeight: 18,
                         ),
                         alignment: Alignment.center,
                         child: Text(
-                          notificationCount
-                              .toString(), // Nombre de notifications
+                          notificationCount.toString(),
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 10,
@@ -224,467 +276,203 @@ class _DashboardContent extends StatelessWidget {
                     ),
                 ],
               ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          // _buildTopNavigationBar(context), // <--- C'EST CETTE LIGNE QUI EST SUPPRIMÉE
-        ],
-      ),
-    );
-  }
-
-  // La méthode _buildTopNavigationBar n'est plus appelée ni nécessaire.
-  // Elle peut être supprimée si elle n'est pas utilisée ailleurs.
-  // Widget _buildTopNavigationBar(BuildContext context) {
-  //   return Container(
-  //     decoration: BoxDecoration(
-  //       color: Colors.grey[100],
-  //       borderRadius: BorderRadius.circular(10),
-  //     ),
-  //     child: Row(
-  //       mainAxisAlignment: MainAxisAlignment.spaceAround,
-  //       children: [
-  //         _buildTabItem(context, 'Tableau de bord', true),
-  //         _buildTabItem(context, 'Tickets', false),
-  //         _buildTabItem(context, 'Profil', false),
-  //       ],
-  //     ),
-  //   );
-  // }
-
-  // La méthode _buildTabItem n'est plus appelée ni nécessaire.
-  // Elle peut être supprimée si elle n'est pas utilisée ailleurs.
-  // Widget _buildTabItem(BuildContext context, String title, bool isActive) {
-  //   return Expanded(
-  //     child: GestureDetector(
-  //       onTap: () {
-  //         // Logique de navigation si cette barre était encore utilisée
-  //       },
-  //       child: Container(
-  //         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-  //         decoration: BoxDecoration(
-  //           color: isActive ? Theme.of(context).primaryColor : Colors.transparent,
-  //           borderRadius: BorderRadius.circular(8),
-  //         ),
-  //         child: Text(
-  //           title,
-  //           textAlign: TextAlign.center,
-  //           style: TextStyle(
-  //             color: isActive ? Colors.white : Colors.grey[700],
-  //             fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-  //           ),
-  //         ),
-  //       ),
-  //     ),
-  //   );
-  // }
-
-  Widget _buildDailyOverviewGrid(
-    BuildContext context,
-    TicketController controller,
-  ) {
-    return Row(
-      children: [
-        Expanded(
-          child: Column(
-            children: [
-              _buildOverviewCard(
-                context,
-                'Tickets aujourd\'hui',
-                controller.todaysTickets.length.toString(),
-                Icons.assignment,
-                Colors.blue.shade100,
-                Colors.blue.shade700,
-              ),
-              const SizedBox(height: 16),
-              _buildOverviewCard(
-                context,
-                'Terminés',
-                controller.completedTickets.length.toString(),
-                Icons.check_circle_outline,
-                Colors.green.shade100,
-                Colors.green.shade700,
+              IconButton(
+                icon: Icon(
+                  Icons.settings_outlined,
+                  color: Theme.of(context).colorScheme.onSurface,
+                  size: 28,
+                ),
+                onPressed: () {
+                  // Handle settings tap
+                },
               ),
             ],
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            children: [
-              _buildOverviewCard(
-                context,
-                'En attente',
-                controller.pendingTickets.length.toString(),
-                Icons.access_time_outlined,
-                Colors.orange.shade100,
-                Colors.orange.shade700,
-              ),
-              const SizedBox(height: 16),
-              _buildOverviewCard(
-                context,
-                'Distance',
-                '${controller.allTickets.fold(0.0, (sum, item) => sum + (item.distance ?? 0)).toStringAsFixed(1)} km',
-                Icons.directions_car_outlined,
-                Colors.red.shade100,
-                Colors.red.shade700,
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildOverviewCard(
-    BuildContext context,
-    String title,
-    String value,
-    IconData icon,
-    Color bgColor,
-    Color iconColor,
-  ) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(15),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                title,
-                style: TextStyle(fontSize: 14, color: Colors.grey[800]),
-              ),
-              Icon(icon, color: iconColor, size: 24),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: iconColor,
-            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildActiveTicketCard(
-    BuildContext context,
-    TicketController controller,
-  ) {
-    final activeTicket = controller.activeTicket;
+  Widget _buildSearchBar(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      child: TextField(
+        decoration: InputDecoration(
+          hintText: 'Rechercher un ticket',
+          prefixIcon: const Icon(Icons.search),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(15),
+            borderSide: BorderSide.none,
+          ),
+          filled: true,
+          fillColor: Colors.grey[200],
+          contentPadding: const EdgeInsets.symmetric(
+            vertical: 0,
+            horizontal: 16,
+          ),
+        ),
+      ),
+    );
+  }
 
-    if (activeTicket == null || activeTicket.id.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+  Widget _buildTicketFilterTabs(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
       child: Container(
-        padding: const EdgeInsets.all(16),
+        height: 40, // Adjust height as needed
         decoration: BoxDecoration(
-          color: Colors.orange.shade50,
-          borderRadius: BorderRadius.circular(15),
-          border: Border.all(color: Colors.orange.shade200),
+          color: Colors.grey[200],
+          borderRadius: BorderRadius.circular(10),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.shade200,
-                    borderRadius: BorderRadius.circular(5),
-                  ),
-                  child: Text(
-                    'TICKET ACTIF',
-                    style: TextStyle(
-                      color: Colors.orange.shade800,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.shade100,
-                    borderRadius: BorderRadius.circular(5),
-                  ),
-                  child: Text(
-                    activeTicket.status == TicketStatus.inProgress
-                        ? 'IN_PROGRESS'
-                        : 'PENDING',
-                    style: TextStyle(
-                      color: Colors.orange.shade700,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              activeTicket.title,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            Text(
-              activeTicket.description,
-              style: TextStyle(fontSize: 14, color: Colors.grey[700]),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Icon(
-                  Icons.location_on_outlined,
-                  size: 16,
-                  color: Colors.grey[600],
-                ),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: Text(
-                    activeTicket.location,
-                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Icon(Icons.person_outline, size: 16, color: Colors.grey[600]),
-                const SizedBox(width: 4),
-                Text(
-                  activeTicket.clientName,
-                  style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                ),
-                const Spacer(),
-                Icon(Icons.access_time, size: 16, color: Colors.grey[600]),
-                const SizedBox(width: 4),
-                Text(
-                  '${activeTicket.scheduledTime.hour}:${activeTicket.scheduledTime.minute.toString().padLeft(2, '0')}',
-                  style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed:
-                    controller.isLoading
-                        ? null
-                        : () async {
-                          final success = await controller.startIntervention(
-                            activeTicket.id,
-                          );
-                          if (success) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Intervention démarrée !'),
-                              ),
-                            );
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  controller.errorMessage ??
-                                      'Erreur lors du démarrage.',
-                                ),
-                              ),
-                            );
-                          }
-                        },
-                icon: const Icon(Icons.play_arrow),
-                label: const Text('COMMENCER INTERVENTION'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-              ),
-            ),
+        child: TabBar(
+          controller: _tabController,
+          indicator: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            color: Theme.of(context).primaryColor,
+          ),
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.grey[700],
+          labelStyle: const TextStyle(fontWeight: FontWeight.bold),
+          tabs: const [
+            Tab(text: 'Tous'),
+            Tab(text: 'En cours'),
+            Tab(text: 'En attente'),
+            Tab(text: 'Terminé'),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildRecentTicketsList(
-    BuildContext context,
-    TicketController controller,
-  ) {
-    if (controller.allTickets.isEmpty) {
-      return const Center(child: Text('Aucun ticket récent.'));
+  Widget _buildTicketListView(BuildContext context, List<Ticket> tickets) {
+    if (tickets.isEmpty) {
+      return const Center(child: Text('Aucun ticket dans cette catégorie.'));
     }
-    final recentTickets =
-        controller.allTickets
-            .where((ticket) => ticket.status != TicketStatus.completed)
-            .take(5)
-            .toList();
-
-    return Column(
-      children:
-          recentTickets.map((ticket) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 8.0),
-              child: _buildTicketListItem(context, ticket, controller),
-            );
-          }).toList(),
+    return ListView.builder(
+      padding: const EdgeInsets.all(16.0),
+      itemCount: tickets.length,
+      itemBuilder: (context, index) {
+        final ticket = tickets[index];
+        return _buildClientTicketListItem(context, ticket);
+      },
     );
   }
 
-  Widget _buildTicketListItem(
-    BuildContext context,
-    Ticket ticket,
-    TicketController controller,
-  ) {
-    Color priorityColor;
+  Widget _buildClientTicketListItem(BuildContext context, Ticket ticket) {
     String statusText;
     Color statusBgColor;
     Color statusTextColor;
-    String buttonText = '';
-    Function()? onPressedButton;
+    IconData icon;
+    String dateLabel;
+    String formattedDate;
 
-    switch (ticket.priority) {
-      case TicketPriority.low:
-        priorityColor = Colors.green;
-        break;
-      case TicketPriority.medium:
-        priorityColor = Colors.orange;
-        break;
-      case TicketPriority.high:
-        priorityColor = Colors.red;
-        break;
-      case TicketPriority.critical:
-        priorityColor = Colors.red.shade900;
-        break;
-    }
-
+    // Determine status text, colors, and icon based on ticket status
     switch (ticket.status) {
-      case TicketStatus.pending:
-        statusText = 'PENDING';
+      case TicketStatus.inProgress:
+        statusText = 'En cours';
+        statusBgColor = Colors.red.shade100;
+        statusTextColor = Colors.red.shade700;
+        icon =
+            Icons
+                .print_outlined; // Example icon, adjust based on ticket type if available
+        // Assuming createdAt exists
+        break;
+      case TicketStatus.completed: // 'Planifié' in the image
+      case TicketStatus.inProgress:
+        statusText = 'Planifié';
         statusBgColor = Colors.blue.shade100;
         statusTextColor = Colors.blue.shade700;
-        buttonText = 'Prendre en charge';
-        onPressedButton = () async {
-          final success = await controller.takeChargeOfTicket(ticket.id);
-          if (success) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Ticket pris en charge !')),
-            );
-          } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(controller.errorMessage ?? 'Erreur.')),
-            );
-          }
-        };
-        break;
-      case TicketStatus.inProgress:
-        statusText = 'IN_PROGRESS';
-        statusBgColor = Colors.orange.shade100;
-        statusTextColor = Colors.orange.shade700;
-        buttonText = 'Terminer';
-        onPressedButton = () async {
-          final success = await controller.completeIntervention(ticket.id);
-          if (success) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Intervention terminée !')),
-            );
-          } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(controller.errorMessage ?? 'Erreur.')),
-            );
-          }
-        };
+        icon = Icons.wifi_outlined; // Example icon
         break;
       case TicketStatus.completed:
-        statusText = 'COMPLETED';
+        statusText = 'Terminé';
         statusBgColor = Colors.green.shade100;
         statusTextColor = Colors.green.shade700;
-        buttonText = 'Détails';
-        onPressedButton = () {
-          // Naviguer vers les détails du ticket
-        };
+        icon =
+            Icons
+                .star_border; // Example icon for completed, or specific service icon
+
         break;
+      case TicketStatus.pending: // Default for others not explicitly styled
       case TicketStatus.cancelled:
-        statusText = 'CANCELLED';
-        statusBgColor = Colors.grey.shade300;
+      default:
+        statusText = 'En attente'; // Or 'Annulé' etc.
+        statusBgColor = Colors.grey.shade100;
         statusTextColor = Colors.grey.shade700;
-        buttonText = 'Détails';
-        onPressedButton = () {};
+        icon = Icons.help_outline;
+
         break;
     }
 
     return Card(
+      margin: const EdgeInsets.only(bottom: 12),
       elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: Column(
+        child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    ticket.title,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '#${ticket.id}',
+                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.calendar_today_outlined,
+                        size: 16,
+                        color: Colors.grey[600],
+                      ),
+                      const SizedBox(width: 4),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.person_outline,
+                        size: 16,
+                        color: Colors.grey[600],
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Technicien : ${ticket.technicianName ?? 'Non assigné'}', // Assuming technicianName field exists
+                        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                      ),
+                    ],
+                  ),
+                  if (ticket.status ==
+                      TicketStatus.completed) // If you have a rating field
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4.0),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.star, size: 16, color: Colors.amber),
+                          const SizedBox(width: 4),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 16),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: priorityColor.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(5),
-                      ),
-                      child: Text(
-                        ticket.priority
-                            .toString()
-                            .split('.')
-                            .last
-                            .toUpperCase(),
-                        style: TextStyle(
-                          color: priorityColor,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      '#${ticket.id}',
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 8,
@@ -703,69 +491,17 @@ class _DashboardContent extends StatelessWidget {
                     ),
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              ticket.title,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Icon(Icons.person_outline, size: 16, color: Colors.grey[600]),
-                const SizedBox(width: 4),
-                Text(
-                  ticket.clientName,
-                  style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                Icon(
-                  Icons.location_on_outlined,
-                  size: 16,
-                  color: Colors.grey[600],
-                ),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: Text(
-                    ticket.location,
-                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                    overflow: TextOverflow.ellipsis,
+                const SizedBox(height: 12),
+                // Icon for the ticket type as seen in the image
+                Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[200],
+                    borderRadius: BorderRadius.circular(10),
                   ),
+                  child: Icon(icon, size: 30, color: Colors.grey[600]),
                 ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                Icon(Icons.access_time, size: 16, color: Colors.grey[600]),
-                const SizedBox(width: 4),
-                Text(
-                  '${ticket.scheduledTime.hour}:${ticket.scheduledTime.minute.toString().padLeft(2, '0')}',
-                  style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                ),
-                const Spacer(),
-                if (buttonText.isNotEmpty)
-                  SizedBox(
-                    height: 30,
-                    child: ElevatedButton(
-                      onPressed: controller.isLoading ? null : onPressedButton,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: statusTextColor,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        textStyle: const TextStyle(fontSize: 12),
-                      ),
-                      child: Text(buttonText),
-                    ),
-                  ),
               ],
             ),
           ],
@@ -773,9 +509,28 @@ class _DashboardContent extends StatelessWidget {
       ),
     );
   }
+
+  String _getMonthName(int? month) {
+    if (month == null) return '';
+    const List<String> monthNames = [
+      '',
+      'Jan',
+      'Fév',
+      'Mar',
+      'Avr',
+      'Mai',
+      'Juin',
+      'Juil',
+      'Août',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Déc',
+    ];
+    return monthNames[month];
+  }
 }
 
-// Extension pour capitaliser les strings, utile pour l'affichage des rôles
 extension StringExtension on String {
   String capitalize() {
     if (isEmpty) return this;

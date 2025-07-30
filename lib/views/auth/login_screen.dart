@@ -5,7 +5,9 @@ import 'package:provider/provider.dart';
 import 'package:omeamobile/controllers/auth_controller.dart';
 import 'package:omeamobile/views/dashboard/technician_dashboard_screen.dart';
 import 'package:omeamobile/utils/app_colors.dart';
-import 'package:omeamobile/views/auth/register_screen.dart'; // Import RegisterScreen
+import 'package:omeamobile/views/auth/register_screen.dart';
+import 'package:omeamobile/views/dashboard/client_dashboard_screen.dart';
+import 'package:omeamobile/models/user_model.dart'; // <<< AJOUTEZ CETTE LIGNE
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -47,19 +49,37 @@ class _LoginScreenState extends State<LoginScreen> {
       }
 
       if (success) {
-        // Here, you might want to check the user's role and navigate accordingly.
-        // For now, it navigates to TechnicianDashboardScreen as per previous code.
-        // If you have a client dashboard, you would add logic here.
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (context) => const TechnicianDashboardScreen(),
-          ),
-        );
+        // --- MODIFICATION ICI: Vérifier le rôle de l'utilisateur pour la navigation ---
+        if (authController.currentUser?.role == UserRole.technician) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (context) => const TechnicianDashboardScreen(),
+            ),
+          );
+        } else if (authController.currentUser?.role == UserRole.client) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (context) => const ClientDashboardScreen(),
+            ),
+          );
+        } else {
+          // Fallback for unknown or unhandled roles
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Rôle utilisateur inconnu. Veuillez contacter l\'administrateur.',
+              ),
+              backgroundColor: Colors.orange,
+            ),
+          );
+          // Optionally, navigate to a generic error screen or back to login
+          // Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (context) => LoginScreen()));
+        }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(authController.errorMessage ?? 'Erreur de connexion'),
-            backgroundColor: Colors.red, // Optional: red background for error
+            backgroundColor: Colors.red,
           ),
         );
       }
