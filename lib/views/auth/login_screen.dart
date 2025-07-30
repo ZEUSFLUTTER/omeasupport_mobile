@@ -1,0 +1,347 @@
+// lib/views/auth/login_screen.dart
+
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:omeamobile/controllers/auth_controller.dart';
+import 'package:omeamobile/views/dashboard/technician_dashboard_screen.dart';
+import 'package:omeamobile/utils/app_colors.dart';
+
+class LoginScreen extends StatefulWidget {
+  const LoginScreen({super.key});
+
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  bool _isPasswordVisible = false;
+
+  bool _isTechnicianSelected = true;
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  void _performLogin() async {
+    if (_formKey.currentState!.validate()) {
+      final authController = Provider.of<AuthController>(
+        context,
+        listen: false,
+      );
+
+      final success = await authController.login(
+        _emailController.text.trim(),
+        _passwordController.text.trim(),
+      );
+
+      // --- AJOUT IMPORTANT: Vérifier si le widget est toujours monté ---
+      if (!mounted) {
+        return; // Sortir si le widget n'est plus dans l'arbre des widgets
+      }
+      // -----------------------------------------------------------------
+
+      if (success) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) => const TechnicianDashboardScreen(),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(authController.errorMessage ?? 'Erreur de connexion'),
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24.0),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // Logo
+                Container(
+                  padding: const EdgeInsets.all(16.0),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryColor, // Use your primary color
+                    borderRadius: BorderRadius.circular(16.0),
+                  ),
+                  child: const Icon(
+                    Icons.headset_mic, // Example icon, replace with your logo
+                    color: Colors.white,
+                    size: 60,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  'OmeaSupport',
+                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+                ),
+                const Text(
+                  'Plateforme de Support Technique',
+                  style: TextStyle(fontSize: 16, color: Colors.grey),
+                ),
+                const SizedBox(height: 32),
+                // Section de sélection du rôle (Technicien/Client)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () {
+                          setState(() {
+                            _isTechnicianSelected = true;
+                          });
+                        },
+                        style: OutlinedButton.styleFrom(
+                          backgroundColor:
+                              _isTechnicianSelected
+                                  ? Theme.of(context).primaryColor
+                                  : Colors.white,
+                          side: BorderSide(
+                            color: Theme.of(context).primaryColor,
+                          ),
+                          shape: const RoundedRectangleBorder(
+                            // Utiliser const pour optimiser
+                            borderRadius: BorderRadius.only(
+                              topLeft: Radius.circular(8),
+                              bottomLeft: Radius.circular(8),
+                            ),
+                          ),
+                        ),
+                        child: Text(
+                          'Technicien',
+                          style: TextStyle(
+                            color:
+                                _isTechnicianSelected
+                                    ? Colors.white
+                                    : Theme.of(context).primaryColor,
+                          ),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () {
+                          setState(() {
+                            _isTechnicianSelected = false;
+                          });
+                        },
+                        style: OutlinedButton.styleFrom(
+                          backgroundColor:
+                              !_isTechnicianSelected
+                                  ? Theme.of(context).primaryColor
+                                  : Colors.white,
+                          side: BorderSide(
+                            color: Theme.of(context).primaryColor,
+                          ),
+                          shape: const RoundedRectangleBorder(
+                            // Utiliser const pour optimiser
+                            borderRadius: BorderRadius.only(
+                              topRight: Radius.circular(8),
+                              bottomRight: Radius.circular(8),
+                            ),
+                          ),
+                        ),
+                        child: Text(
+                          'Client',
+                          style: TextStyle(
+                            color:
+                                !_isTechnicianSelected
+                                    ? Colors.white
+                                    : Theme.of(context).primaryColor,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                // Message d'erreur
+                Consumer<AuthController>(
+                  builder: (context, authController, child) {
+                    if (authController.errorMessage != null) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 16.0),
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.red.shade100,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.red.shade400),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.error_outline,
+                                color: Colors.red.shade700,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  authController.errorMessage!,
+                                  style: TextStyle(color: Colors.red.shade700),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
+                TextFormField(
+                  controller: _emailController,
+                  decoration: const InputDecoration(
+                    labelText: 'Adresse e-mail',
+                    prefixIcon: Icon(Icons.email_outlined),
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType: TextInputType.emailAddress,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Veuillez entrer votre e-mail';
+                    }
+                    if (!value.contains('@')) {
+                      return 'E-mail invalide';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _passwordController,
+                  obscureText: !_isPasswordVisible,
+                  decoration: InputDecoration(
+                    labelText: 'Mot de passe',
+                    prefixIcon: const Icon(Icons.lock_outline),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _isPasswordVisible
+                            ? Icons.visibility
+                            : Icons.visibility_off,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _isPasswordVisible = !_isPasswordVisible;
+                        });
+                      },
+                    ),
+                    border: const OutlineInputBorder(),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Veuillez entrer votre mot de passe';
+                    }
+                    return null;
+                  },
+                ),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () {
+                      // Gérer le mot de passe oublié
+                    },
+                    child: const Text('Mot de passe oublié ?'),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Consumer<AuthController>(
+                  builder: (context, authController, child) {
+                    return SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed:
+                            authController.isLoading ? null : _performLogin,
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          backgroundColor: Theme.of(context).primaryColor,
+                          foregroundColor: Colors.white,
+                        ),
+                        child:
+                            authController.isLoading
+                                ? const CircularProgressIndicator(
+                                  color: Colors.white,
+                                )
+                                : const Text(
+                                  'Se connecter',
+                                  style: TextStyle(fontSize: 18),
+                                ),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 16),
+                const Text('ou', style: TextStyle(color: Colors.grey)),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      // Gérer l'authentification biométrique
+                    },
+                    icon: const Icon(Icons.fingerprint),
+                    label: const Text('Authentification biométrique'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      side: BorderSide(color: Theme.of(context).primaryColor),
+                      foregroundColor: Theme.of(context).primaryColor,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Text.rich(
+                  TextSpan(
+                    text: 'En vous connectant, vous acceptez nos ',
+                    style: TextStyle(color: Colors.grey),
+                    children: [
+                      TextSpan(
+                        text: 'conditions d\'utilisation',
+                        style: TextStyle(
+                          color: Theme.of(context).primaryColor,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        // Vous pouvez ajouter un onTap ici pour ouvrir un lien
+                      ),
+                      TextSpan(text: ' et notre '),
+                      TextSpan(
+                        text: 'politique de confidentialité',
+                        style: TextStyle(
+                          color: Theme.of(context).primaryColor,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        // Vous pouvez ajouter un onTap ici pour ouvrir un lien
+                      ),
+                    ],
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

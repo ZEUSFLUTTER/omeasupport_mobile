@@ -1,0 +1,785 @@
+// lib/views/dashboard/technician_dashboard_screen.dart
+
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:omeamobile/controllers/auth_controller.dart';
+import 'package:omeamobile/controllers/ticket_controller.dart';
+import 'package:omeamobile/models/ticket_model.dart';
+import 'package:omeamobile/models/user_model.dart';
+import 'package:omeamobile/views/tickets/ticket_screen.dart';
+import 'package:omeamobile/views/profile/profile_screen.dart';
+
+class TechnicianDashboardScreen extends StatefulWidget {
+  const TechnicianDashboardScreen({super.key});
+
+  @override
+  State<TechnicianDashboardScreen> createState() =>
+      _TechnicianDashboardScreenState();
+}
+
+class _TechnicianDashboardScreenState extends State<TechnicianDashboardScreen> {
+  int _selectedIndex = 0; // Pour la BottomNavigationBar
+  late List<Widget> _widgetOptions; // Liste des écrans
+
+  @override
+  void initState() {
+    super.initState();
+    // Au démarrage du tableau de bord, charger les données
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<TicketController>(
+        context,
+        listen: false,
+      ).fetchDashboardData();
+    });
+
+    _widgetOptions = <Widget>[
+      _DashboardContent(), // Contenu principal du tableau de bord
+      TicketsScreen(), // Écran des tickets
+      const Center(child: Text('Historique')), // Écran de l'historique
+      ProfileScreen(), // Écran de profil
+    ];
+  }
+
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // AuthController n'est plus directement utilisé dans le build ici,
+    // mais le reste de l'application en dépend.
+    // final authController = Provider.of<AuthController>(context);
+    // final user = authController.currentUser;
+
+    return Scaffold(
+      appBar: AppBar(
+        toolbarHeight: 0,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+      ),
+      body: _widgetOptions.elementAt(_selectedIndex),
+      bottomNavigationBar: BottomNavigationBar(
+        items: const <BottomNavigationBarItem>[
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Accueil'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.assignment),
+            label: 'Tickets',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.history),
+            label: 'Historique',
+          ),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profil'),
+        ],
+        currentIndex: _selectedIndex,
+        selectedItemColor: Theme.of(context).primaryColor,
+        unselectedItemColor: Colors.grey,
+        onTap: _onItemTapped,
+        type: BottomNavigationBarType.fixed,
+      ),
+    );
+  }
+}
+
+// Widget pour le contenu du tableau de bord (partie supérieure de l'écran)
+class _DashboardContent extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final authController = Provider.of<AuthController>(context);
+    final ticketController = Provider.of<TicketController>(context);
+    final user = authController.currentUser;
+
+    if (user == null) {
+      return const Center(child: Text('Erreur: Utilisateur non connecté.'));
+    }
+
+    // Calcul du nombre de notifications (par exemple, tickets en attente)
+    final int notificationCount = ticketController.pendingTickets.length;
+
+    return RefreshIndicator(
+      onRefresh: () => ticketController.fetchDashboardData(),
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildHeader(
+              context,
+              user,
+              notificationCount,
+            ), // Passer le nombre de notifications
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Aperçu du jour',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 16),
+                  _buildDailyOverviewGrid(context, ticketController),
+                  const SizedBox(height: 24),
+                  _buildActiveTicketCard(context, ticketController),
+                  const SizedBox(height: 24),
+                  const Text(
+                    'Tickets récents',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 16),
+                  _buildRecentTicketsList(context, ticketController),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader(BuildContext context, User user, int notificationCount) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      color: Colors.white,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Bonjour,',
+                    style: TextStyle(fontSize: 16, color: Colors.grey[700]),
+                  ),
+                  Text(
+                    user.nom,
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.location_on_outlined,
+                        size: 16,
+                        color: Colors.grey[600],
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        user.ville,
+                        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              // Bouton avec icône et notifications
+              Stack(
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).primaryColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      Icons
+                          .notifications_none_outlined, // Icône de notification
+                      color: Theme.of(context).primaryColor,
+                    ),
+                  ),
+                  if (notificationCount >
+                      0) // Afficher la bulle seulement s'il y a des notifications
+                    Positioned(
+                      right: 0,
+                      top: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: Colors.red, // Couleur de notification
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 20,
+                          minHeight: 20,
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          notificationCount
+                              .toString(), // Nombre de notifications
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // _buildTopNavigationBar(context), // <--- C'EST CETTE LIGNE QUI EST SUPPRIMÉE
+        ],
+      ),
+    );
+  }
+
+  // La méthode _buildTopNavigationBar n'est plus appelée ni nécessaire.
+  // Elle peut être supprimée si elle n'est pas utilisée ailleurs.
+  // Widget _buildTopNavigationBar(BuildContext context) {
+  //   return Container(
+  //     decoration: BoxDecoration(
+  //       color: Colors.grey[100],
+  //       borderRadius: BorderRadius.circular(10),
+  //     ),
+  //     child: Row(
+  //       mainAxisAlignment: MainAxisAlignment.spaceAround,
+  //       children: [
+  //         _buildTabItem(context, 'Tableau de bord', true),
+  //         _buildTabItem(context, 'Tickets', false),
+  //         _buildTabItem(context, 'Profil', false),
+  //       ],
+  //     ),
+  //   );
+  // }
+
+  // La méthode _buildTabItem n'est plus appelée ni nécessaire.
+  // Elle peut être supprimée si elle n'est pas utilisée ailleurs.
+  // Widget _buildTabItem(BuildContext context, String title, bool isActive) {
+  //   return Expanded(
+  //     child: GestureDetector(
+  //       onTap: () {
+  //         // Logique de navigation si cette barre était encore utilisée
+  //       },
+  //       child: Container(
+  //         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+  //         decoration: BoxDecoration(
+  //           color: isActive ? Theme.of(context).primaryColor : Colors.transparent,
+  //           borderRadius: BorderRadius.circular(8),
+  //         ),
+  //         child: Text(
+  //           title,
+  //           textAlign: TextAlign.center,
+  //           style: TextStyle(
+  //             color: isActive ? Colors.white : Colors.grey[700],
+  //             fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+  //           ),
+  //         ),
+  //       ),
+  //     ),
+  //   );
+  // }
+
+  Widget _buildDailyOverviewGrid(
+    BuildContext context,
+    TicketController controller,
+  ) {
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            children: [
+              _buildOverviewCard(
+                context,
+                'Tickets aujourd\'hui',
+                controller.todaysTickets.length.toString(),
+                Icons.assignment,
+                Colors.blue.shade100,
+                Colors.blue.shade700,
+              ),
+              const SizedBox(height: 16),
+              _buildOverviewCard(
+                context,
+                'Terminés',
+                controller.completedTickets.length.toString(),
+                Icons.check_circle_outline,
+                Colors.green.shade100,
+                Colors.green.shade700,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            children: [
+              _buildOverviewCard(
+                context,
+                'En attente',
+                controller.pendingTickets.length.toString(),
+                Icons.access_time_outlined,
+                Colors.orange.shade100,
+                Colors.orange.shade700,
+              ),
+              const SizedBox(height: 16),
+              _buildOverviewCard(
+                context,
+                'Distance',
+                '${controller.allTickets.fold(0.0, (sum, item) => sum + (item.distance ?? 0)).toStringAsFixed(1)} km',
+                Icons.directions_car_outlined,
+                Colors.red.shade100,
+                Colors.red.shade700,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildOverviewCard(
+    BuildContext context,
+    String title,
+    String value,
+    IconData icon,
+    Color bgColor,
+    Color iconColor,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(15),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                title,
+                style: TextStyle(fontSize: 14, color: Colors.grey[800]),
+              ),
+              Icon(icon, color: iconColor, size: 24),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+              color: iconColor,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActiveTicketCard(
+    BuildContext context,
+    TicketController controller,
+  ) {
+    final activeTicket = controller.activeTicket;
+
+    if (activeTicket == null || activeTicket.id.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.orange.shade50,
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(color: Colors.orange.shade200),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade200,
+                    borderRadius: BorderRadius.circular(5),
+                  ),
+                  child: Text(
+                    'TICKET ACTIF',
+                    style: TextStyle(
+                      color: Colors.orange.shade800,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade100,
+                    borderRadius: BorderRadius.circular(5),
+                  ),
+                  child: Text(
+                    activeTicket.status == TicketStatus.inProgress
+                        ? 'IN_PROGRESS'
+                        : 'PENDING',
+                    style: TextStyle(
+                      color: Colors.orange.shade700,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              activeTicket.title,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            Text(
+              activeTicket.description,
+              style: TextStyle(fontSize: 14, color: Colors.grey[700]),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Icon(
+                  Icons.location_on_outlined,
+                  size: 16,
+                  color: Colors.grey[600],
+                ),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    activeTicket.location,
+                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Icon(Icons.person_outline, size: 16, color: Colors.grey[600]),
+                const SizedBox(width: 4),
+                Text(
+                  activeTicket.clientName,
+                  style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                ),
+                const Spacer(),
+                Icon(Icons.access_time, size: 16, color: Colors.grey[600]),
+                const SizedBox(width: 4),
+                Text(
+                  '${activeTicket.scheduledTime.hour}:${activeTicket.scheduledTime.minute.toString().padLeft(2, '0')}',
+                  style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed:
+                    controller.isLoading
+                        ? null
+                        : () async {
+                          final success = await controller.startIntervention(
+                            activeTicket.id,
+                          );
+                          if (success) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Intervention démarrée !'),
+                              ),
+                            );
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  controller.errorMessage ??
+                                      'Erreur lors du démarrage.',
+                                ),
+                              ),
+                            );
+                          }
+                        },
+                icon: const Icon(Icons.play_arrow),
+                label: const Text('COMMENCER INTERVENTION'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRecentTicketsList(
+    BuildContext context,
+    TicketController controller,
+  ) {
+    if (controller.allTickets.isEmpty) {
+      return const Center(child: Text('Aucun ticket récent.'));
+    }
+    final recentTickets =
+        controller.allTickets
+            .where((ticket) => ticket.status != TicketStatus.completed)
+            .take(5)
+            .toList();
+
+    return Column(
+      children:
+          recentTickets.map((ticket) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8.0),
+              child: _buildTicketListItem(context, ticket, controller),
+            );
+          }).toList(),
+    );
+  }
+
+  Widget _buildTicketListItem(
+    BuildContext context,
+    Ticket ticket,
+    TicketController controller,
+  ) {
+    Color priorityColor;
+    String statusText;
+    Color statusBgColor;
+    Color statusTextColor;
+    String buttonText = '';
+    Function()? onPressedButton;
+
+    switch (ticket.priority) {
+      case TicketPriority.low:
+        priorityColor = Colors.green;
+        break;
+      case TicketPriority.medium:
+        priorityColor = Colors.orange;
+        break;
+      case TicketPriority.high:
+        priorityColor = Colors.red;
+        break;
+      case TicketPriority.critical:
+        priorityColor = Colors.red.shade900;
+        break;
+    }
+
+    switch (ticket.status) {
+      case TicketStatus.pending:
+        statusText = 'PENDING';
+        statusBgColor = Colors.blue.shade100;
+        statusTextColor = Colors.blue.shade700;
+        buttonText = 'Prendre en charge';
+        onPressedButton = () async {
+          final success = await controller.takeChargeOfTicket(ticket.id);
+          if (success) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Ticket pris en charge !')),
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(controller.errorMessage ?? 'Erreur.')),
+            );
+          }
+        };
+        break;
+      case TicketStatus.inProgress:
+        statusText = 'IN_PROGRESS';
+        statusBgColor = Colors.orange.shade100;
+        statusTextColor = Colors.orange.shade700;
+        buttonText = 'Terminer';
+        onPressedButton = () async {
+          final success = await controller.completeIntervention(ticket.id);
+          if (success) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Intervention terminée !')),
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(controller.errorMessage ?? 'Erreur.')),
+            );
+          }
+        };
+        break;
+      case TicketStatus.completed:
+        statusText = 'COMPLETED';
+        statusBgColor = Colors.green.shade100;
+        statusTextColor = Colors.green.shade700;
+        buttonText = 'Détails';
+        onPressedButton = () {
+          // Naviguer vers les détails du ticket
+        };
+        break;
+      case TicketStatus.cancelled:
+        statusText = 'CANCELLED';
+        statusBgColor = Colors.grey.shade300;
+        statusTextColor = Colors.grey.shade700;
+        buttonText = 'Détails';
+        onPressedButton = () {};
+        break;
+    }
+
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: priorityColor.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(5),
+                      ),
+                      child: Text(
+                        ticket.priority
+                            .toString()
+                            .split('.')
+                            .last
+                            .toUpperCase(),
+                        style: TextStyle(
+                          color: priorityColor,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '#${ticket.id}',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: statusBgColor,
+                    borderRadius: BorderRadius.circular(5),
+                  ),
+                  child: Text(
+                    statusText,
+                    style: TextStyle(
+                      color: statusTextColor,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              ticket.title,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Icon(Icons.person_outline, size: 16, color: Colors.grey[600]),
+                const SizedBox(width: 4),
+                Text(
+                  ticket.clientName,
+                  style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Icon(
+                  Icons.location_on_outlined,
+                  size: 16,
+                  color: Colors.grey[600],
+                ),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    ticket.location,
+                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Icon(Icons.access_time, size: 16, color: Colors.grey[600]),
+                const SizedBox(width: 4),
+                Text(
+                  '${ticket.scheduledTime.hour}:${ticket.scheduledTime.minute.toString().padLeft(2, '0')}',
+                  style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                ),
+                const Spacer(),
+                if (buttonText.isNotEmpty)
+                  SizedBox(
+                    height: 30,
+                    child: ElevatedButton(
+                      onPressed: controller.isLoading ? null : onPressedButton,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: statusTextColor,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        textStyle: const TextStyle(fontSize: 12),
+                      ),
+                      child: Text(buttonText),
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// Extension pour capitaliser les strings, utile pour l'affichage des rôles
+extension StringExtension on String {
+  String capitalize() {
+    if (isEmpty) return this;
+    return "${this[0].toUpperCase()}${substring(1)}";
+  }
+}
