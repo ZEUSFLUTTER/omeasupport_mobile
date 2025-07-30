@@ -6,6 +6,7 @@ import 'package:omeamobile/controllers/auth_controller.dart';
 import 'package:omeamobile/controllers/ticket_controller.dart';
 import 'package:omeamobile/views/auth/login_screen.dart';
 import 'package:omeamobile/views/dashboard/technician_dashboard_screen.dart';
+import 'package:omeamobile/views/dashboard/client_dashboard_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -105,16 +106,15 @@ class MyApp extends StatelessWidget {
         ),
         home: Consumer<AuthController>(
           builder: (context, authController, child) {
-            // Vérifie le statut d'authentification au démarrage de l'app
-            if (authController.isLoading) {
-              return const Scaffold(
-                body: Center(child: CircularProgressIndicator()),
-              );
-            } else if (authController.isAuthenticated) {
-              return const TechnicianDashboardScreen(); // Redirige vers le tableau de bord si connecté
-            } else {
-              return const LoginScreen(); // Vers l'écran de connexion si non connecté
+            if (authController.currentUser == null) {
+              return const LoginScreen();
+            } else if (authController.currentUser!.role ==
+                UserRole.technician) {
+              return const TechnicianDashboardScreen();
+            } else if (authController.currentUser!.role == UserRole.client) {
+              return const ClientDashboardScreen();
             }
+            return const Text('Unknown User Role');
           },
         ),
       ),
