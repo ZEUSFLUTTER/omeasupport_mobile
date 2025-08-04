@@ -48,10 +48,7 @@ class _TechnicianDashboardScreenState extends State<TechnicianDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // AuthController n'est plus directement utilisé dans le build ici,
-    // mais le reste de l'application en dépend.
-    // final authController = Provider.of<AuthController>(context);
-    // final user = authController.currentUser;
+
 
     return Scaffold(
       appBar: AppBar(
@@ -234,51 +231,6 @@ class _DashboardContent extends StatelessWidget {
     );
   }
 
-  // La méthode _buildTopNavigationBar n'est plus appelée ni nécessaire.
-  // Elle peut être supprimée si elle n'est pas utilisée ailleurs.
-  // Widget _buildTopNavigationBar(BuildContext context) {
-  //   return Container(
-  //     decoration: BoxDecoration(
-  //       color: Colors.grey[100],
-  //       borderRadius: BorderRadius.circular(10),
-  //     ),
-  //     child: Row(
-  //       mainAxisAlignment: MainAxisAlignment.spaceAround,
-  //       children: [
-  //         _buildTabItem(context, 'Tableau de bord', true),
-  //         _buildTabItem(context, 'Tickets', false),
-  //         _buildTabItem(context, 'Profil', false),
-  //       ],
-  //     ),
-  //   );
-  // }
-
-  // La méthode _buildTabItem n'est plus appelée ni nécessaire.
-  // Elle peut être supprimée si elle n'est pas utilisée ailleurs.
-  // Widget _buildTabItem(BuildContext context, String title, bool isActive) {
-  //   return Expanded(
-  //     child: GestureDetector(
-  //       onTap: () {
-  //         // Logique de navigation si cette barre était encore utilisée
-  //       },
-  //       child: Container(
-  //         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-  //         decoration: BoxDecoration(
-  //           color: isActive ? Theme.of(context).primaryColor : Colors.transparent,
-  //           borderRadius: BorderRadius.circular(8),
-  //         ),
-  //         child: Text(
-  //           title,
-  //           textAlign: TextAlign.center,
-  //           style: TextStyle(
-  //             color: isActive ? Colors.white : Colors.grey[700],
-  //             fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-  //           ),
-  //         ),
-  //       ),
-  //     ),
-  //   );
-  // }
 
   Widget _buildDailyOverviewGrid(
     BuildContext context,

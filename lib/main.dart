@@ -1,6 +1,7 @@
 // lib/main.dart
 
 import 'package:flutter/material.dart';
+import 'package:omeamobile/views/dashboard/technician_dashboard_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:omeamobile/controllers/auth_controller.dart';
 import 'package:omeamobile/controllers/ticket_controller.dart';
@@ -111,7 +112,15 @@ class MyApp extends StatelessWidget {
                 body: Center(child: CircularProgressIndicator()),
               );
             } else if (authController.isAuthenticated) {
-              return const ClientDashboardScreen(); // Redirige vers le tableau de bord si connecté
+              // Redirige vers le bon dashboard selon le rôle de l'utilisateur
+              if (authController.currentUser?.role == 'technician') {
+                return const TechnicianDashboardScreen();
+              } else if (authController.currentUser?.role == 'client') {
+                return const ClientDashboardScreen();
+              } else {
+                // Fallback: retourne à la page de login si le rôle est inconnu
+                return const LoginScreen();
+              }
             } else {
               return const LoginScreen(); // Vers l'écran de connexion si non connecté
             }

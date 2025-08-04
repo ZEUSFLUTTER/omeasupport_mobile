@@ -401,6 +401,10 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> read(String ticketId) async {
+    return await _post('read', {}, authorized: true);
+  }
+
   Future<Map<String, dynamic>> startIntervention(String ticketId) async {
     return await _post('tickets/$ticketId/start', {}, authorized: true);
   }
