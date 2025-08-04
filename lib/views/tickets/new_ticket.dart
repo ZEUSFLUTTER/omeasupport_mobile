@@ -1,17 +1,13 @@
-// lib/views/tickets/new_ticket_screen.dart
-
 import 'dart:io';
-import 'dart:convert'; // For base64 encoding
-import 'dart:typed_data'; // For Uint8List on web
+import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:intl/intl.dart'; // For date formatting
-import 'package:omeamobile/services/api_service.dart'; // Import ApiService for initialization
-import 'package:omeamobile/services/ticket_service.dart'; // Import your TicketService
-import 'package:omeamobile/models/ticket_model.dart'; // Import Ticket model to handle response
-
-// Import pour vérifier la plateforme (si web ou non)
+import 'package:intl/intl.dart'; // Assurez-vous d'avoir ceci
+import 'package:omeamobile/services/api_service.dart';
+import 'package:omeamobile/services/ticket_service.dart';
+import 'package:omeamobile/models/ticket_model.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 
 class NewTicketScreen extends StatefulWidget {
@@ -26,13 +22,11 @@ class _NewTicketScreenState extends State<NewTicketScreen> {
 
   final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _addressController = TextEditingController();
-  final TextEditingController _dateRdvController =
-      TextEditingController(); // For date picker
+  // Un seul contrôleur pour la date et l'heure combinées
+  final TextEditingController _dateTimeRdvController = TextEditingController();
   String? _selectedProblemType;
 
-  // CHANGEMENT MAJEUR ICI: Stocker les XFile directement pour la compatibilité web
-  List<XFile> _selectedPhotos = []; // Utilisez XFile au lieu de File
-
+  List<XFile> _selectedPhotos = [];
   bool _isLoading = false;
 
   final List<String> _problemTypes = [
@@ -47,6 +41,9 @@ class _NewTicketScreenState extends State<NewTicketScreen> {
   final ImagePicker _picker = ImagePicker();
   late final TicketService _ticketService;
 
+  // Un seul objet DateTime pour stocker la date et l'heure combinées
+  DateTime? _selectedDateTime;
+
   @override
   void initState() {
     super.initState();
@@ -57,7 +54,7 @@ class _NewTicketScreenState extends State<NewTicketScreen> {
   void dispose() {
     _descriptionController.dispose();
     _addressController.dispose();
-    _dateRdvController.dispose();
+    _dateTimeRdvController.dispose(); // Dispose du nouveau contrôleur combiné
     super.dispose();
   }
 
@@ -68,31 +65,58 @@ class _NewTicketScreenState extends State<NewTicketScreen> {
     );
     if (pickedFile != null) {
       setState(() {
-        _selectedPhotos.add(pickedFile); // Ajoutez XFile directement
+        _selectedPhotos.add(pickedFile);
       });
     }
   }
 
-  Future<void> _selectDate(BuildContext context) async {
-    final DateTime? picked = await showDatePicker(
+  // Nouvelle fonction pour sélectionner la date ET l'heure
+  Future<void> _selectDateTime(BuildContext context) async {
+    // 1. Sélection de la date
+    final DateTime? pickedDate = await showDatePicker(
       context: context,
-      initialDate: DateTime.now(),
+      initialDate: _selectedDateTime ?? DateTime.now(),
       firstDate: DateTime.now(),
       lastDate: DateTime(2030),
     );
-    if (picked != null) {
-      setState(() {
-        _dateRdvController.text = DateFormat('yyyy-MM-dd').format(picked);
-      });
-    }
+
+    if (pickedDate == null)
+      return; // L'utilisateur a annulé la sélection de la date
+
+    // 2. Sélection de l'heure, après la date
+    final TimeOfDay? pickedTime = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(_selectedDateTime ?? DateTime.now()),
+    );
+
+    if (pickedTime == null)
+      return; // L'utilisateur a annulé la sélection de l'heure
+
+    // 3. Combinaison de la date et de l'heure sélectionnées
+    setState(() {
+      _selectedDateTime = DateTime(
+        pickedDate.year,
+        pickedDate.month,
+        pickedDate.day,
+        pickedTime.hour,
+        pickedTime.minute,
+      );
+      // Formate la date et l'heure combinées pour l'affichage dans le champ de texte
+      _dateTimeRdvController.text = DateFormat(
+        'yyyy-MM-dd HH:mm',
+      ).format(_selectedDateTime!);
+    });
   }
 
   Future<void> _submitTicket() async {
     if (_formKey.currentState!.validate()) {
-      if (_dateRdvController.text.isEmpty) {
+      if (_selectedDateTime == null) {
+        // Vérifier si la date et l'heure combinées ont été sélectionnées
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Veuillez sélectionner une date de rendez-vous'),
+            content: Text(
+              'Veuillez sélectionner une date et une heure de rendez-vous',
+            ),
           ),
         );
         return;
@@ -104,8 +128,6 @@ class _NewTicketScreenState extends State<NewTicketScreen> {
 
       List<String> photosBase64 = [];
       for (XFile photo in _selectedPhotos) {
-        // Itérer sur XFile
-        // Lire les octets de l'image de manière compatible avec le web
         Uint8List imageBytes = await photo.readAsBytes();
         photosBase64.add(base64Encode(imageBytes));
       }
@@ -115,7 +137,7 @@ class _NewTicketScreenState extends State<NewTicketScreen> {
           typeProbleme: _selectedProblemType!,
           description: _descriptionController.text.trim(),
           adresse: _addressController.text.trim(),
-          dateRdv: DateTime.parse(_dateRdvController.text),
+          dateRdv: _selectedDateTime!, // Envoyez l'objet DateTime combiné
           photosBase64: photosBase64,
         );
 
@@ -244,31 +266,24 @@ class _NewTicketScreenState extends State<NewTicketScreen> {
                             scrollDirection: Axis.horizontal,
                             itemCount: _selectedPhotos.length,
                             itemBuilder: (context, index) {
-                              // CHANGEMENT MAJEUR ICI: Utiliser Image.memory pour le web
                               final XFile photo = _selectedPhotos[index];
                               return Stack(
                                 children: [
                                   Padding(
                                     padding: const EdgeInsets.all(4.0),
-                                    // Utilisez Image.memory pour afficher les octets de l'image
-                                    // C'est compatible avec mobile et web.
                                     child: FutureBuilder<Uint8List>(
-                                      future:
-                                          photo
-                                              .readAsBytes(), // Lire les octets
+                                      future: photo.readAsBytes(),
                                       builder: (context, snapshot) {
                                         if (snapshot.connectionState ==
                                                 ConnectionState.done &&
                                             snapshot.hasData) {
                                           return Image.memory(
-                                            snapshot
-                                                .data!, // Utilisez les octets pour afficher
+                                            snapshot.data!,
                                             width: 90,
                                             height: 90,
                                             fit: BoxFit.cover,
                                           );
                                         }
-                                        // Ou un indicateur de chargement si l'image prend du temps à charger
                                         return Container(
                                           width: 90,
                                           height: 90,
@@ -327,23 +342,29 @@ class _NewTicketScreenState extends State<NewTicketScreen> {
               ),
               const SizedBox(height: 24),
               const Text(
-                'Date du rendez-vous',
+                'Date et Heure du rendez-vous', // Nouveau libellé
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
               TextFormField(
-                controller: _dateRdvController,
+                controller:
+                    _dateTimeRdvController, // Utilisez le nouveau contrôleur
                 readOnly: true,
-                onTap: () => _selectDate(context),
+                onTap:
+                    () => _selectDateTime(
+                      context,
+                    ), // Appelez la nouvelle fonction combinée
                 decoration: const InputDecoration(
-                  hintText: 'Sélectionner une date',
-                  suffixIcon: Icon(Icons.calendar_today),
+                  hintText: 'Sélectionner date et heure', // Nouveau hint
+                  suffixIcon: Icon(
+                    Icons.calendar_today,
+                  ), // Icône pour le sélecteur
                   border: OutlineInputBorder(),
                   contentPadding: EdgeInsets.all(12),
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Veuillez sélectionner une date de rendez-vous';
+                    return 'Veuillez sélectionner une date et une heure de rendez-vous';
                   }
                   return null;
                 },

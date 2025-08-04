@@ -1,16 +1,14 @@
 // lib/services/ticket_service.dart
-// This service acts as an abstraction layer for ticket-related API calls,
-// utilizing the core ApiService for HTTP communication.
 
-import 'package:omeamobile/models/ticket_model.dart'; // Make sure this is the adjusted model
+import 'package:omeamobile/models/ticket_model.dart';
 import 'package:omeamobile/services/api_service.dart';
+import 'package:intl/intl.dart';
 
 class TicketService {
-  final ApiService _apiService; // Use the existing ApiService instance
+  final ApiService _apiService;
 
-  TicketService(this._apiService); // Constructor to inject ApiService
+  TicketService(this._apiService);
 
-  /// Fetches a list of tickets, optionally filtered by status or type.
   Future<List<Ticket>> getTickets({String? status, String? type}) async {
     final result = await _apiService.getTickets(status: status, type: type);
 
@@ -19,35 +17,37 @@ class TicketService {
           .map((json) => Ticket.fromJson(json as Map<String, dynamic>))
           .toList();
     } else {
-      // You can throw an exception or return an empty list based on your error handling strategy
       throw Exception(result['message'] ?? 'Failed to fetch tickets');
     }
   }
 
-  /// Creates a new ticket.
-  /// This method directly uses the `createTicket` from ApiService.
   Future<Ticket> createTicket({
     required String typeProbleme,
     required String description,
     required String adresse,
-    required DateTime dateRdv, // Accept DateTime, convert to String for API
+    required DateTime dateRdv,
     List<String>? photosBase64,
   }) async {
+    final DateFormat formatter = DateFormat("yyyy-MM-dd HH:mm:ss");
+    final String formattedDateRdv = formatter.format(dateRdv.toUtc());
+
+    print('Formatted date_rdv being sent: $formattedDateRdv');
+
     final result = await _apiService.createTicket(
       typeProbleme: typeProbleme,
       description: description,
       adresse: adresse,
-      dateRdv:
-          dateRdv.toIso8601String().split('T').first, // Format to YYYY-MM-DD
+      dateRdv: formattedDateRdv,
       photosBase64: photosBase64,
     );
 
-    if (result['success'] == true && result['data'] != null) {
-      return Ticket.fromJson(result['data'] as Map<String, dynamic>);
+    // MODIFICATION HERE:
+    // Check for 'status' == true and 'ticket' != null from the Laravel response.
+    if (result['status'] == true && result['ticket'] != null) {
+      return Ticket.fromJson(result['ticket'] as Map<String, dynamic>);
     } else {
       String errorMessage = result['message'] ?? 'Failed to create ticket';
       if (result['errors'] != null) {
-        // Concatenate validation errors
         (result['errors'] as Map<String, dynamic>).forEach((key, value) {
           errorMessage += '\n${value.join(', ')}';
         });
@@ -56,36 +56,33 @@ class TicketService {
     }
   }
 
-  /// Starts an intervention for a given ticket ID.
   Future<bool> startIntervention(int ticketId) async {
     final result = await _apiService.startIntervention(ticketId.toString());
-    if (result['success'] == true) {
+    // Assuming Laravel returns {'status': true} for success
+    if (result['status'] == true) {
       return true;
     } else {
       throw Exception(result['message'] ?? 'Failed to start intervention');
     }
   }
 
-  /// Completes an intervention for a given ticket ID.
   Future<bool> completeIntervention(int ticketId) async {
     final result = await _apiService.completeIntervention(ticketId.toString());
-    if (result['success'] == true) {
+    // Assuming Laravel returns {'status': true} for success
+    if (result['status'] == true) {
       return true;
     } else {
       throw Exception(result['message'] ?? 'Failed to complete intervention');
     }
   }
 
-  /// Takes charge of a ticket.
   Future<bool> takeChargeOfTicket(int ticketId) async {
     final result = await _apiService.takeChargeOfTicket(ticketId.toString());
-    if (result['success'] == true) {
+    // Assuming Laravel returns {'status': true} for success
+    if (result['status'] == true) {
       return true;
     } else {
       throw Exception(result['message'] ?? 'Failed to take charge of ticket');
     }
   }
-
-
-
 }

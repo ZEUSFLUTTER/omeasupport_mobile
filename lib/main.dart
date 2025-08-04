@@ -113,9 +113,9 @@ class MyApp extends StatelessWidget {
               );
             } else if (authController.isAuthenticated) {
               // Redirige vers le bon dashboard selon le rôle de l'utilisateur
-              if (authController.currentUser?.role == 'technician') {
+              if (authController.currentUser?.role == UserRole.technician) {
                 return const TechnicianDashboardScreen();
-              } else if (authController.currentUser?.role == 'client') {
+              } else if (authController.currentUser?.role == UserRole.client) {
                 return const ClientDashboardScreen();
               } else {
                 // Fallback: retourne à la page de login si le rôle est inconnu
