@@ -43,7 +43,9 @@ class TicketService {
     );
 
     if (result['success'] == true && result['data'] != null) {
-      return Ticket.fromJson(result['data'] as Map<String, dynamic>);
+      // L'API Laravel retourne les données dans result['data']['ticket']
+      final ticketData = result['data']['ticket'] ?? result['data'];
+      return Ticket.fromJson(ticketData as Map<String, dynamic>);
     } else {
       String errorMessage = result['message'] ?? 'Failed to create ticket';
       if (result['errors'] != null) {
@@ -85,7 +87,4 @@ class TicketService {
       throw Exception(result['message'] ?? 'Failed to take charge of ticket');
     }
   }
-
-
-
 }

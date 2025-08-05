@@ -71,14 +71,21 @@ class Ticket {
 
     return Ticket(
       id: json['id'].toString(), // Assurez-vous que l'ID est un String
-      title: json['title'] as String,
+      title:
+          json['type_probleme'] as String? ??
+          'Sans titre', // Laravel utilise 'type_probleme'
       description: json['description'] as String? ?? '',
-      location: json['location'] as String,
+      location: json['adresse'] as String? ?? '', // Laravel utilise 'adresse'
       clientName:
-          json['client_name'] as String, // Assurez-vous que l'API renvoie ceci
-      scheduledTime: DateTime.parse(json['scheduled_time'] as String),
-      status: _parseStatus(json['status'] as String),
-      priority: _parsePriority(json['priority'] as String),
+          json['client_name'] as String? ??
+          'Client inconnu', // Peut ne pas être présent
+      scheduledTime: DateTime.parse(
+        json['date_rdv'] as String,
+      ), // Laravel utilise 'date_rdv'
+      status: _parseStatus(
+        json['statut'] as String? ?? 'pending',
+      ), // Laravel utilise 'statut'
+      priority: _parsePriority(json['priority'] as String? ?? 'medium'),
       distance:
           json['distance'] != null
               ? (json['distance'] as num).toDouble()
