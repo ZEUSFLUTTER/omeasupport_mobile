@@ -1,11 +1,12 @@
-// lib/views/tickets/tickets_screen.dart
+// lib/views/tickets/ticket_screen.dart
 
 import 'package:flutter/material.dart';
-import 'package:omeamobile/utils/snackbar_helper.dart';
-import 'package:provider/provider.dart';
-import 'package:omeamobile/controllers/ticket_controller.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:omeamobile/blocs/tickets/ticket_bloc.dart';
+import 'package:omeamobile/blocs/tickets/ticket_event.dart';
+import 'package:omeamobile/blocs/tickets/ticket_state.dart';
 import 'package:omeamobile/models/ticket_model.dart';
-// Pour _buildTicketListItem
+import 'package:omeamobile/utils/snackbar_helper.dart';
 
 class TicketsScreen extends StatefulWidget {
   const TicketsScreen({super.key});
@@ -19,62 +20,103 @@ class _TicketsScreenState extends State<TicketsScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<TicketController>(context, listen: false).fetchAllTickets();
+      context.read<TicketBloc>().add(TicketFetchAllRequested());
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final ticketController = Provider.of<TicketController>(context);
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Tickets'),
         centerTitle: false,
         actions: [
           IconButton(
-            icon: const Icon(Icons.filter_list), // Icône de filtre
+            icon: const Icon(Icons.filter_list),
             onPressed: () {
               // Gérer l'action de filtrage
             },
           ),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: () => ticketController.fetchAllTickets(),
-        child:
-            ticketController.isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : ticketController.allTickets.isEmpty
-                ? const Center(child: Text('Aucun ticket disponible.'))
-                : ListView.builder(
-                  padding: const EdgeInsets.all(16.0),
-                  itemCount: ticketController.allTickets.length,
-                  itemBuilder: (context, index) {
-                    final ticket = ticketController.allTickets[index];
-                    // Réutilise le _buildTicketListItem du Dashboard pour la cohérence
-                    // Assurez-vous que cette fonction est accessible ou copiée/adaptée.
-                    // Pour l'instant, je vais la rendre statique ou la réécrire ici.
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 12.0),
-                      child: _buildTicketListItem(
-                        context,
-                        ticket,
-                        ticketController,
-                      ),
-                    );
-                  },
-                ),
+      body: BlocConsumer<TicketBloc, TicketState>(
+        listener: (context, state) {
+          if (state is TicketActionSuccess) {
+            SnackBarHelper.showSuccess(
+              context: context,
+              message: state.message,
+            );
+          } else if (state is TicketError) {
+            SnackBarHelper.showError(
+              context: context,
+              message: state.message,
+              actionLabel: 'Réessayer',
+              onActionPressed: () {
+                context.read<TicketBloc>().add(TicketFetchAllRequested());
+              },
+            );
+          }
+        },
+        builder: (context, state) {
+          if (state is TicketLoading) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          List<Ticket> allTickets = [];
+          bool isActionLoading = false;
+
+          if (state is TicketLoaded) {
+            allTickets = state.allTickets;
+          } else if (state is TicketActionLoading) {
+            allTickets = state.allTickets;
+            isActionLoading = true;
+          } else if (state is TicketActionSuccess) {
+            allTickets = state.allTickets;
+          } else if (state is TicketError) {
+            return RefreshIndicator(
+              onRefresh: () async {
+                context.read<TicketBloc>().add(TicketFetchAllRequested());
+              },
+              child: const Center(
+                child: Text('Erreur lors du chargement des tickets'),
+              ),
+            );
+          }
+
+          if (allTickets.isEmpty) {
+            return RefreshIndicator(
+              onRefresh: () async {
+                context.read<TicketBloc>().add(TicketFetchAllRequested());
+              },
+              child: const Center(child: Text('Aucun ticket disponible.')),
+            );
+          }
+
+          return RefreshIndicator(
+            onRefresh: () async {
+              context.read<TicketBloc>().add(TicketFetchAllRequested());
+            },
+            child: ListView.builder(
+              padding: const EdgeInsets.all(16.0),
+              itemCount: allTickets.length,
+              itemBuilder: (context, index) {
+                final ticket = allTickets[index];
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12.0),
+                  child: _buildTicketListItem(context, ticket, isActionLoading),
+                );
+              },
+            ),
+          );
+        },
       ),
     );
   }
 
-  // Copie de _buildTicketListItem du TechnicianDashboardScreen pour éviter les dépendances circulaires
-  // Dans un projet plus grand, ce serait un widget séparé dans `lib/views/widgets/ticket_list_item.dart`
   Widget _buildTicketListItem(
     BuildContext context,
     Ticket ticket,
-    TicketController controller,
+    bool isActionLoading,
   ) {
     Color priorityColor;
     String statusText;
@@ -104,19 +146,10 @@ class _TicketsScreenState extends State<TicketsScreen> {
         statusBgColor = Colors.blue.shade100;
         statusTextColor = Colors.blue.shade700;
         buttonText = 'Prendre en charge';
-        onPressedButton = () async {
-          final success = await controller.takeChargeOfTicket(ticket.id);
-          if (success) {
-           SnackBarHelper.showSuccess(
-              context: context,
-              message: 'Ticket pris en charge avec succès !',
-            );
-          } else {
-           SnackBarHelper.showError(
-              context: context,
-              message: controller.errorMessage ?? 'Erreur lors de la prise en charge',
-            );
-          }
+        onPressedButton = () {
+          context.read<TicketBloc>().add(
+            TicketTakeChargeRequested(ticketId: ticket.id),
+          );
         };
         break;
       case TicketStatus.inProgress:
@@ -124,19 +157,10 @@ class _TicketsScreenState extends State<TicketsScreen> {
         statusBgColor = Colors.orange.shade100;
         statusTextColor = Colors.orange.shade700;
         buttonText = 'Terminer';
-        onPressedButton = () async {
-          final success = await controller.completeIntervention(ticket.id);
-          if (success) {
-            SnackBarHelper.showSuccess(
-              context: context,
-              message: 'Intervention terminée avec succès !',
-            );
-          } else {
-            SnackBarHelper.showError(
-              context: context,
-              message: controller.errorMessage ?? 'Erreur lors de la finalisation',
-            );
-          }
+        onPressedButton = () {
+          context.read<TicketBloc>().add(
+            TicketCompleteInterventionRequested(ticketId: ticket.id),
+          );
         };
         break;
       case TicketStatus.completed:
@@ -268,12 +292,11 @@ class _TicketsScreenState extends State<TicketsScreen> {
                 const Spacer(),
                 if (buttonText.isNotEmpty)
                   SizedBox(
-                    height: 30, // Hauteur réduite pour les boutons des listes
+                    height: 30,
                     child: ElevatedButton(
-                      onPressed: controller.isLoading ? null : onPressedButton,
+                      onPressed: isActionLoading ? null : onPressedButton,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor:
-                            statusTextColor, // Couleur du bouton basée sur le statut
+                        backgroundColor: statusTextColor,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(horizontal: 10),
                         shape: RoundedRectangleBorder(

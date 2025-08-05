@@ -1,93 +1,100 @@
 // lib/views/profile/profile_screen.dart
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:omeamobile/blocs/auth/auth_bloc.dart';
+import 'package:omeamobile/blocs/auth/auth_event.dart';
+import 'package:omeamobile/blocs/auth/auth_state.dart';
 import 'package:omeamobile/utils/snackbar_helper.dart';
-import 'package:provider/provider.dart';
-import 'package:omeamobile/controllers/auth_controller.dart';
-import 'package:omeamobile/views/auth/login_screen.dart'; // Pour la redirection après déconnexion
+import 'package:omeamobile/views/auth/login_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final authController = Provider.of<AuthController>(context);
-    final user = authController.currentUser;
-
-    if (user == null) {
-      // Gérer le cas où l'utilisateur n'est pas connecté
-      return const Center(child: Text('Erreur: Utilisateur non connecté.'));
-    }
-
     return Scaffold(
       appBar: AppBar(title: const Text('Profil'), centerTitle: false),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            const SizedBox(height: 20),
-            CircleAvatar(
-              radius: 60,
-              backgroundColor: Theme.of(context).primaryColor.withOpacity(0.1),
-              child: Icon(
-                Icons.person,
-                size: 60,
-                color: Theme.of(context).primaryColor,
+      body: BlocConsumer<AuthBloc, AuthState>(
+        listener: (context, state) {
+          if (state is AuthUnauthenticated) {
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(
+                builder: (context) => const LoginScreen(),
               ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              user.nom,
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
-            Text(
-              user.role
-                  .toString()
-                  .split('.')
-                  .last
-                  .capitalize(), // Ex: "Technicien"
-              style: TextStyle(fontSize: 16, color: Colors.grey[700]),
-            ),
-            const SizedBox(height: 32),
-            _buildSettingsSection(context),
-            const SizedBox(height: 32),
-            _buildSupportSection(context),
-            const SizedBox(height: 40),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed:
-                    authController.isLoading
-                        ? null
-                        : () async {
-                          await authController.logout();
-                          // Rediriger vers l'écran de connexion après déconnexion
-                          Navigator.of(context).pushAndRemoveUntil(
-                            MaterialPageRoute(
-                              builder: (context) => const LoginScreen(),
-                            ),
-                            (Route<dynamic> route) => false,
-                          );
-                          SnackBarHelper.showInfo(
-                            context: context,
-                            message: 'Vous avez été déconnecté avec succès',
-                          );
-                        },
-                icon: const Icon(Icons.logout),
-                label: const Text('Déconnexion'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+              (Route<dynamic> route) => false,
+            );
+            SnackBarHelper.showInfo(
+              context: context,
+              message: 'Vous avez été déconnecté avec succès',
+            );
+          }
+        },
+        builder: (context, state) {
+          if (state is! AuthAuthenticated) {
+            return const Center(child: Text('Erreur: Utilisateur non connecté.'));
+          }
+
+          final user = state.user;
+
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const SizedBox(height: 20),
+                CircleAvatar(
+                  radius: 60,
+                  backgroundColor: Theme.of(context).primaryColor.withOpacity(0.1),
+                  child: Icon(
+                    Icons.person,
+                    size: 60,
+                    color: Theme.of(context).primaryColor,
                   ),
                 ),
-              ),
+                const SizedBox(height: 16),
+                Text(
+                  user.nom,
+                  style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                ),
+                Text(
+                  user.role.capitalize(),
+                  style: TextStyle(fontSize: 16, color: Colors.grey[700]),
+                ),
+                const SizedBox(height: 32),
+                _buildSettingsSection(context),
+                const SizedBox(height: 32),
+                _buildSupportSection(context),
+                const SizedBox(height: 40),
+                BlocBuilder<AuthBloc, AuthState>(
+                  builder: (context, authState) {
+                    return SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed:
+                            authState is AuthLoading
+                                ? null
+                                : () {
+                                  context.read<AuthBloc>().add(AuthLogoutRequested());
+                                },
+                        icon: const Icon(Icons.logout),
+                        label: const Text('Déconnexion'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ],
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -175,7 +182,6 @@ class ProfileScreen extends StatelessWidget {
   }
 }
 
-// Extension pour capitaliser les strings, utile pour l'affichage des rôles
 extension StringExtension on String {
   String capitalize() {
     if (isEmpty) return this;
