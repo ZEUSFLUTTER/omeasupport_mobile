@@ -5,7 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:omeamobile/controllers/auth_controller.dart';
 import 'package:omeamobile/views/auth/login_screen.dart'; // Import LoginScreen
 import 'package:omeamobile/utils/app_colors.dart';
-import 'package:omeamobile/models/user_model.dart'; // Assuming User and UserRole are defined here
+// Assuming User and UserRole are defined here
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});

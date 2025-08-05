@@ -1,7 +1,8 @@
 // lib/views/dashboard/technician_dashboard_screen.dart (This file will now serve as the Client Dashboard)
 
+// ignore_for_file: unused_local_variable, unreachable_switch_case, unused_element, unreachable_switch_default
+
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 import 'package:omeamobile/controllers/auth_controller.dart';
 import 'package:omeamobile/controllers/ticket_controller.dart';

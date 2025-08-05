@@ -1,6 +1,7 @@
 // lib/views/tickets/new_ticket_screen.dart
 
-import 'dart:io';
+// ignore_for_file: use_build_context_synchronously
+
 import 'dart:convert'; // For base64 encoding
 import 'dart:typed_data'; // For Uint8List on web
 
@@ -12,7 +13,6 @@ import 'package:omeamobile/services/ticket_service.dart'; // Import your TicketS
 import 'package:omeamobile/models/ticket_model.dart'; // Import Ticket model to handle response
 
 // Import pour vérifier la plateforme (si web ou non)
-import 'package:flutter/foundation.dart' show kIsWeb;
 
 class NewTicketScreen extends StatefulWidget {
   const NewTicketScreen({super.key});
@@ -31,7 +31,7 @@ class _NewTicketScreenState extends State<NewTicketScreen> {
   String? _selectedProblemType;
 
   // CHANGEMENT MAJEUR ICI: Stocker les XFile directement pour la compatibilité web
-  List<XFile> _selectedPhotos = []; // Utilisez XFile au lieu de File
+  final List<XFile> _selectedPhotos = []; // Utilisez XFile au lieu de File
 
   bool _isLoading = false;
 

@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:omeamobile/controllers/ticket_controller.dart';
 import 'package:omeamobile/models/ticket_model.dart';
-import 'package:omeamobile/views/dashboard/technician_dashboard_screen.dart'; // Pour _buildTicketListItem
+// Pour _buildTicketListItem
 
 class TicketsScreen extends StatefulWidget {
   const TicketsScreen({super.key});

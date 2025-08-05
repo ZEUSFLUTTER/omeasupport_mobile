@@ -96,9 +96,8 @@ class MyApp extends StatelessWidget {
               ),
             ),
           ),
-          cardTheme: CardTheme(
-            elevation:
-                0, // Les cartes dans les designs ont souvent peu ou pas d'ombre
+          cardTheme: CardThemeData(
+            elevation: 0, // Les cartes dans les designs ont souvent peu ou pas d'ombre
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(15),
             ),

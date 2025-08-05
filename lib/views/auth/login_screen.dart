@@ -1,5 +1,7 @@
 // lib/views/auth/login_screen.dart
 
+// ignore_for_file: unrelated_type_equality_checks
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:omeamobile/controllers/auth_controller.dart';
@@ -7,7 +9,7 @@ import 'package:omeamobile/views/dashboard/technician_dashboard_screen.dart';
 import 'package:omeamobile/utils/app_colors.dart';
 import 'package:omeamobile/views/auth/register_screen.dart';
 import 'package:omeamobile/views/dashboard/client_dashboard_screen.dart';
-import 'package:omeamobile/models/user_model.dart'; // <<< AJOUTEZ CETTE LIGNE
+// <<< AJOUTEZ CETTE LIGNE
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
