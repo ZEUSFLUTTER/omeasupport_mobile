@@ -1,7 +1,7 @@
 // lib/blocs/auth/auth_event.dart
 
 import 'package:equatable/equatable.dart';
-import 'package:omeamobile/controllers/auth_controller.dart';
+import 'package:omeamobile/enum/enums.dart';
 
 abstract class AuthEvent extends Equatable {
   const AuthEvent();

@@ -2,11 +2,11 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:omeamobile/blocs/auth/auth_bloc.dart';
-import 'package:omeamobile/blocs/auth/auth_state.dart';
-import 'package:omeamobile/blocs/tickets/ticket_bloc.dart';
-import 'package:omeamobile/blocs/tickets/ticket_event.dart';
-import 'package:omeamobile/blocs/tickets/ticket_state.dart';
+import 'package:omeamobile/controllers/blocs/auth/auth_bloc.dart';
+import 'package:omeamobile/controllers/blocs/auth/auth_state.dart';
+import 'package:omeamobile/controllers/blocs/tickets/ticket_bloc.dart';
+import 'package:omeamobile/controllers/blocs/tickets/ticket_event.dart';
+import 'package:omeamobile/controllers/blocs/tickets/ticket_state.dart';
 import 'package:omeamobile/models/ticket_model.dart';
 import 'package:omeamobile/models/user_model.dart';
 import 'package:omeamobile/utils/snackbar_helper.dart';

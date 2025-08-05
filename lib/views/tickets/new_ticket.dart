@@ -7,9 +7,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
-import 'package:omeamobile/blocs/tickets/ticket_bloc.dart';
-import 'package:omeamobile/blocs/tickets/ticket_event.dart';
-import 'package:omeamobile/blocs/tickets/ticket_state.dart';
+import 'package:omeamobile/controllers/blocs/tickets/ticket_bloc.dart';
+import 'package:omeamobile/controllers/blocs/tickets/ticket_event.dart';
+import 'package:omeamobile/controllers/blocs/tickets/ticket_state.dart';
 import 'package:omeamobile/utils/snackbar_helper.dart';
 
 class NewTicketScreen extends StatefulWidget {

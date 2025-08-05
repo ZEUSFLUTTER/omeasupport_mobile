@@ -1,8 +1,8 @@
 // lib/blocs/ticket/ticket_bloc.dart
 
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:omeamobile/blocs/tickets/ticket_event.dart';
-import 'package:omeamobile/blocs/tickets/ticket_state.dart';
+import 'package:omeamobile/controllers/blocs/tickets/ticket_event.dart';
+import 'package:omeamobile/controllers/blocs/tickets/ticket_state.dart';
 import 'package:omeamobile/models/ticket_model.dart';
 import 'package:omeamobile/services/api_service.dart';
 import 'package:omeamobile/services/ticket_service.dart';

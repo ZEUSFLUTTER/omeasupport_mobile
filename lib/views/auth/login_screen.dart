@@ -2,9 +2,9 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:omeamobile/blocs/auth/auth_bloc.dart';
-import 'package:omeamobile/blocs/auth/auth_event.dart';
-import 'package:omeamobile/blocs/auth/auth_state.dart';
+import 'package:omeamobile/controllers/blocs/auth/auth_bloc.dart';
+import 'package:omeamobile/controllers/blocs/auth/auth_event.dart';
+import 'package:omeamobile/controllers/blocs/auth/auth_state.dart';
 import 'package:omeamobile/utils/app_colors.dart';
 import 'package:omeamobile/utils/snackbar_helper.dart';
 import 'package:omeamobile/views/auth/register_screen.dart';
