@@ -1,6 +1,7 @@
 // lib/views/auth/register_screen.dart
 
 import 'package:flutter/material.dart';
+import 'package:omeamobile/utils/snackbar_helper.dart';
 import 'package:provider/provider.dart';
 import 'package:omeamobile/controllers/auth_controller.dart';
 import 'package:omeamobile/views/auth/login_screen.dart'; // Import LoginScreen
@@ -71,20 +72,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (context) => const LoginScreen()),
         );
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Inscription réussie ! Veuillez vous connecter.'),
-            backgroundColor: Colors.green,
-          ),
+        SnackBarHelper.showSuccess(
+          context: context,
+          message:
+              'Inscription réussie ! Vous pouvez maintenant vous connecter.',
         );
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              authController.errorMessage ?? 'Erreur d\'inscription',
-            ),
-            backgroundColor: Colors.red,
-          ),
+        SnackBarHelper.showError(
+          context: context,
+          message: authController.errorMessage ?? 'Erreur d\'inscription',
         );
       }
     }

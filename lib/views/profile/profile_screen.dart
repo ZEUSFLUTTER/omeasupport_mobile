@@ -1,6 +1,7 @@
 // lib/views/profile/profile_screen.dart
 
 import 'package:flutter/material.dart';
+import 'package:omeamobile/utils/snackbar_helper.dart';
 import 'package:provider/provider.dart';
 import 'package:omeamobile/controllers/auth_controller.dart';
 import 'package:omeamobile/views/auth/login_screen.dart'; // Pour la redirection après déconnexion
@@ -68,10 +69,9 @@ class ProfileScreen extends StatelessWidget {
                             ),
                             (Route<dynamic> route) => false,
                           );
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Déconnexion réussie.'),
-                            ),
+                          SnackBarHelper.showInfo(
+                            context: context,
+                            message: 'Vous avez été déconnecté avec succès',
                           );
                         },
                 icon: const Icon(Icons.logout),

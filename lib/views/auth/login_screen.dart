@@ -3,6 +3,7 @@
 // ignore_for_file: unrelated_type_equality_checks
 
 import 'package:flutter/material.dart';
+import 'package:omeamobile/utils/snackbar_helper.dart';
 import 'package:provider/provider.dart';
 import 'package:omeamobile/controllers/auth_controller.dart';
 import 'package:omeamobile/views/dashboard/technician_dashboard_screen.dart';
@@ -51,12 +52,17 @@ class _LoginScreenState extends State<LoginScreen> {
       }
 
       if (success) {
-        // --- MODIFICATION ICI: Vérifier le rôle de l'utilisateur pour la navigation ---
         if (authController.currentUser?.role == UserRole.technician) {
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(
               builder: (context) => const TechnicianDashboardScreen(),
             ),
+          );
+          //show success message
+          SnackBarHelper.showSuccess(
+            context: context,
+            message:
+                'Connexion réussie ! Bienvenue ${authController.currentUser?.nom}',
           );
         } else if (authController.currentUser?.role == UserRole.client) {
           Navigator.of(context).pushReplacement(
@@ -64,25 +70,28 @@ class _LoginScreenState extends State<LoginScreen> {
               builder: (context) => const ClientDashboardScreen(),
             ),
           );
+          //show success message
+          SnackBarHelper.showSuccess(
+            context: context,
+            message:
+                'Connexion réussie ! Bienvenue ${authController.currentUser?.nom}',
+          );
         } else {
           // Fallback for unknown or unhandled roles
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
+          SnackBarHelper.showWarning(
+            context: context,
+            message:
                 'Rôle utilisateur inconnu. Veuillez contacter l\'administrateur.',
-              ),
-              backgroundColor: Colors.orange,
-            ),
+            actionLabel: 'Réessayer',
           );
-          // Optionally, navigate to a generic error screen or back to login
-          // Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (context) => LoginScreen()));
         }
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(authController.errorMessage ?? 'Erreur de connexion'),
-            backgroundColor: Colors.red,
-          ),
+        // Message d'erreur
+        SnackBarHelper.showError(
+          context: context,
+          message: authController.errorMessage ?? 'Erreur de connexion',
+          actionLabel: 'Réessayer',
+          onActionPressed: () => _performLogin(),
         );
       }
     }

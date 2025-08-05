@@ -10,7 +10,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart'; // For date formatting
 import 'package:omeamobile/services/api_service.dart'; // Import ApiService for initialization
 import 'package:omeamobile/services/ticket_service.dart'; // Import your TicketService
-import 'package:omeamobile/models/ticket_model.dart'; // Import Ticket model to handle response
+import 'package:omeamobile/models/ticket_model.dart';
+import 'package:omeamobile/utils/snackbar_helper.dart'; // Import Ticket model to handle response
 
 // Import pour vérifier la plateforme (si web ou non)
 
@@ -90,10 +91,9 @@ class _NewTicketScreenState extends State<NewTicketScreen> {
   Future<void> _submitTicket() async {
     if (_formKey.currentState!.validate()) {
       if (_dateRdvController.text.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Veuillez sélectionner une date de rendez-vous'),
-          ),
+        SnackBarHelper.showWarning(
+          context: context,
+          message: 'Veuillez sélectionner une date de rendez-vous',
         );
         return;
       }
@@ -119,18 +119,21 @@ class _NewTicketScreenState extends State<NewTicketScreen> {
           photosBase64: photosBase64,
         );
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Ticket ${createdTicket.id} créé avec succès!'),
-          ),
+        SnackBarHelper.showSuccess(
+          context: context,
+          message: 'Ticket #${createdTicket.id} créé avec succès !',
+          actionLabel: 'Voir',
+          onActionPressed: () {
+            // Navigation vers les détails du ticket
+          },
         );
         Navigator.pop(context);
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
+        SnackBarHelper.showError(
+          context: context,
+          message: 'Erreur lors de la création : ${e.toString()}',
+          actionLabel: 'Réessayer',
+          onActionPressed: () => _submitTicket(),
         );
       } finally {
         setState(() {

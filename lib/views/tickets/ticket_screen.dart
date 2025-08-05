@@ -1,6 +1,7 @@
 // lib/views/tickets/tickets_screen.dart
 
 import 'package:flutter/material.dart';
+import 'package:omeamobile/utils/snackbar_helper.dart';
 import 'package:provider/provider.dart';
 import 'package:omeamobile/controllers/ticket_controller.dart';
 import 'package:omeamobile/models/ticket_model.dart';
@@ -106,12 +107,14 @@ class _TicketsScreenState extends State<TicketsScreen> {
         onPressedButton = () async {
           final success = await controller.takeChargeOfTicket(ticket.id);
           if (success) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Ticket pris en charge !')),
+           SnackBarHelper.showSuccess(
+              context: context,
+              message: 'Ticket pris en charge avec succès !',
             );
           } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(controller.errorMessage ?? 'Erreur.')),
+           SnackBarHelper.showError(
+              context: context,
+              message: controller.errorMessage ?? 'Erreur lors de la prise en charge',
             );
           }
         };
@@ -124,12 +127,14 @@ class _TicketsScreenState extends State<TicketsScreen> {
         onPressedButton = () async {
           final success = await controller.completeIntervention(ticket.id);
           if (success) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Intervention terminée !')),
+            SnackBarHelper.showSuccess(
+              context: context,
+              message: 'Intervention terminée avec succès !',
             );
           } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(controller.errorMessage ?? 'Erreur.')),
+            SnackBarHelper.showError(
+              context: context,
+              message: controller.errorMessage ?? 'Erreur lors de la finalisation',
             );
           }
         };

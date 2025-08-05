@@ -1,6 +1,7 @@
 // lib/views/dashboard/technician_dashboard_screen.dart
 
 import 'package:flutter/material.dart';
+import 'package:omeamobile/utils/snackbar_helper.dart';
 import 'package:provider/provider.dart';
 import 'package:omeamobile/controllers/auth_controller.dart';
 import 'package:omeamobile/controllers/ticket_controller.dart';
@@ -48,8 +49,6 @@ class _TechnicianDashboardScreenState extends State<TechnicianDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-
-
     return Scaffold(
       appBar: AppBar(
         toolbarHeight: 0,
@@ -230,7 +229,6 @@ class _DashboardContent extends StatelessWidget {
       ),
     );
   }
-
 
   Widget _buildDailyOverviewGrid(
     BuildContext context,
@@ -453,19 +451,22 @@ class _DashboardContent extends StatelessWidget {
                             activeTicket.id,
                           );
                           if (success) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Intervention démarrée !'),
-                              ),
+                            SnackBarHelper.showSuccess(
+                              context: context,
+                              message: 'Intervention démarrée avec succès !',
                             );
                           } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
+                            SnackBarHelper.showError(
+                              context: context,
+                              message:
                                   controller.errorMessage ??
-                                      'Erreur lors du démarrage.',
-                                ),
-                              ),
+                                  'Erreur lors du démarrage',
+                              actionLabel: 'Réessayer',
+                              onActionPressed: () async {
+                                await controller.startIntervention(
+                                  activeTicket.id,
+                                );
+                              },
                             );
                           }
                         },
@@ -547,12 +548,14 @@ class _DashboardContent extends StatelessWidget {
         onPressedButton = () async {
           final success = await controller.takeChargeOfTicket(ticket.id);
           if (success) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Ticket pris en charge !')),
+            SnackBarHelper.showSuccess(
+              context: context,
+              message: 'Ticket pris en charge !',
             );
           } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(controller.errorMessage ?? 'Erreur.')),
+            SnackBarHelper.showError(
+              context: context,
+              message: controller.errorMessage ?? 'Erreur.',
             );
           }
         };
@@ -564,15 +567,17 @@ class _DashboardContent extends StatelessWidget {
         buttonText = 'Terminer';
         onPressedButton = () async {
           final success = await controller.completeIntervention(ticket.id);
-          if (success) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Intervention terminée !')),
+            if (success) {
+            SnackBarHelper.showSuccess(
+              context: context,
+              message: 'Intervention terminée !',
             );
-          } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(controller.errorMessage ?? 'Erreur.')),
+            } else {
+            SnackBarHelper.showError(
+              context: context,
+              message: controller.errorMessage ?? 'Erreur.',
             );
-          }
+            }
         };
         break;
       case TicketStatus.completed:
