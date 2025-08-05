@@ -2,13 +2,13 @@
 // This service acts as an abstraction layer for ticket-related API calls,
 // utilizing the core ApiService for HTTP communication.
 
-import 'package:omeamobile/models/ticket_model.dart'; // Make sure this is the adjusted model
+import 'package:omeamobile/models/ticket_model.dart';
 import 'package:omeamobile/services/api_service.dart';
 
 class TicketService {
-  final ApiService _apiService; // Use the existing ApiService instance
+  final ApiService _apiService;
 
-  TicketService(this._apiService); // Constructor to inject ApiService
+  TicketService(this._apiService);
 
   /// Fetches a list of tickets, optionally filtered by status or type.
   Future<List<Ticket>> getTickets({String? status, String? type}) async {
@@ -19,39 +19,38 @@ class TicketService {
           .map((json) => Ticket.fromJson(json as Map<String, dynamic>))
           .toList();
     } else {
-      // You can throw an exception or return an empty list based on your error handling strategy
       throw Exception(result['message'] ?? 'Failed to fetch tickets');
     }
   }
 
   /// Creates a new ticket.
-  /// This method directly uses the `createTicket` from ApiService.
   Future<Ticket> createTicket({
     required String typeProbleme,
     required String description,
     required String adresse,
-    required DateTime dateRdv, // Accept DateTime, convert to String for API
+    required DateTime dateRdv,
     List<String>? photosBase64,
   }) async {
     final result = await _apiService.createTicket(
       typeProbleme: typeProbleme,
       description: description,
       adresse: adresse,
-      dateRdv:
-          dateRdv.toIso8601String().split('T').first, // Format to YYYY-MM-DD
+      dateRdv: dateRdv.toIso8601String().split('T').first,
       photosBase64: photosBase64,
     );
 
     if (result['success'] == true && result['data'] != null) {
-      // L'API Laravel retourne les données dans result['data']['ticket']
-      final ticketData = result['data']['ticket'] ?? result['data'];
-      return Ticket.fromJson(ticketData as Map<String, dynamic>);
+      // CORRECTION: ApiService mappe maintenant correctement les données
+      final ticketData = result['data'] as Map<String, dynamic>;
+      return Ticket.fromJson(ticketData);
     } else {
       String errorMessage = result['message'] ?? 'Failed to create ticket';
       if (result['errors'] != null) {
         // Concatenate validation errors
         (result['errors'] as Map<String, dynamic>).forEach((key, value) {
-          errorMessage += '\n${value.join(', ')}';
+          if (value is List) {
+            errorMessage += '\n${value.join(', ')}';
+          }
         });
       }
       throw Exception(errorMessage);

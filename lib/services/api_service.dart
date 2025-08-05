@@ -12,34 +12,19 @@ class ApiService {
 
   String? _authToken;
 
-  // 1. L'instance statique unique du Singleton
+  // Singleton pattern
   static final ApiService _instance = ApiService._internal();
-
-  // 2. Le constructeur factory qui retourne l'instance unique
-  factory ApiService() {
-    return _instance;
-  }
-
-  // 3. Le constructeur privé nommé pour l'initialisation interne
-  // Il est important qu'il soit privé pour empêcher la création d'autres instances.
+  factory ApiService() => _instance;
   ApiService._internal() {
-    // Initialisation asynchrone du token au démarrage de l'application
-    // Il est crucial que cela soit géré correctement dans le flux de l'app.
-    // Idéalement, _loadAuthToken() devrait être appelé une fois au tout début
-    // de l'application (par exemple, dans main() ou un Splash Screen)
-    // et être attendu avant de permettre les requêtes authentifiées.
     _loadAuthToken();
   }
 
-  // Cette méthode charge le token depuis SharedPreferences
   Future<void> _loadAuthToken() async {
     final prefs = await SharedPreferences.getInstance();
     _authToken = prefs.getString(_authTokenKey);
     print('ApiService: Token chargé au démarrage: $_authToken');
   }
 
-  // Méthode publique pour s'assurer que le token est chargé avant toute opération.
-  // Utile si vous avez besoin de garantir que le token est disponible avant une requête.
   Future<void> ensureTokenLoaded() async {
     if (_authToken == null) {
       await _loadAuthToken();
@@ -49,14 +34,14 @@ class ApiService {
   Future<void> _saveAuthToken(String token) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_authTokenKey, token);
-    _authToken = token; // Mettre à jour l'authToken de cette instance Singleton
+    _authToken = token;
     print('ApiService: Token sauvegardé: $_authToken');
   }
 
   Future<void> clearAuthToken() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_authTokenKey);
-    _authToken = null; // Effacer l'authToken de cette instance Singleton
+    _authToken = null;
     print('ApiService: Token supprimé.');
   }
 
@@ -79,7 +64,6 @@ class ApiService {
     bool authorized = false,
   }) async {
     try {
-      // S'assurer que le token est chargé si la requête est autorisée
       if (authorized) {
         await ensureTokenLoaded();
       }
@@ -92,16 +76,15 @@ class ApiService {
         body: json.encode(body),
       );
 
-      print(
-        'ApiService: POST $endpoint (Status: ${response.statusCode}): ${response.body}',
-      );
+      print('ApiService: POST $endpoint (Status: ${response.statusCode}): ${response.body}');
 
       final responseData = json.decode(response.body) as Map<String, dynamic>;
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
+        // CORRECTION: Mapper correctement selon la structure de réponse Laravel
         return {
           'success': true,
-          'data': responseData['data'],
+          'data': _extractDataFromResponse(responseData, endpoint),
           'message': responseData['message'] ?? 'Succès',
         };
       } else {
@@ -134,12 +117,22 @@ class ApiService {
     }
   }
 
+  /// Extrait les données de la réponse selon l'endpoint
+  dynamic _extractDataFromResponse(Map<String, dynamic> responseData, String endpoint) {
+    // Pour les tickets, Laravel retourne directement le ticket
+    if (endpoint == 'tickets') {
+      return responseData['ticket'] ?? responseData['data'];
+    }
+    
+    // Pour les autres endpoints, utiliser 'data' par défaut
+    return responseData['data'];
+  }
+
   Future<Map<String, dynamic>> _get(
     String endpoint, {
     bool authorized = false,
   }) async {
     try {
-      // S'assurer que le token est chargé si la requête est autorisée
       if (authorized) {
         await ensureTokenLoaded();
       }
@@ -148,9 +141,7 @@ class ApiService {
       final headers = await _getHeaders(authorized: authorized);
       final response = await http.get(url, headers: headers);
 
-      print(
-        'ApiService: GET $endpoint (Status: ${response.statusCode}): ${response.body}',
-      );
+      print('ApiService: GET $endpoint (Status: ${response.statusCode}): ${response.body}');
 
       final responseData = json.decode(response.body) as Map<String, dynamic>;
 
@@ -183,6 +174,7 @@ class ApiService {
     }
   }
 
+  // Login method remains the same
   Future<Map<String, dynamic>> login({
     required String email,
     required String password,
@@ -201,9 +193,7 @@ class ApiService {
 
     if (loginResponseData != null && loginResponseData['token'] != null) {
       final String token = loginResponseData['token'];
-      await _saveAuthToken(
-        token,
-      ); // Sauvegarde et met à jour l'instance Singleton
+      await _saveAuthToken(token);
 
       final userProfileResponse = await getUserProfile();
 
@@ -218,37 +208,30 @@ class ApiService {
             'user': user,
           };
         } catch (e) {
-          print(
-            'ApiService: Erreur de parsing du profil utilisateur après login: $e',
-          );
+          print('ApiService: Erreur de parsing du profil utilisateur après login: $e');
           await clearAuthToken();
           return {
             'success': false,
-            'message':
-                'Connexion réussie, mais format du profil utilisateur invalide.',
+            'message': 'Connexion réussie, mais format du profil utilisateur invalide.',
           };
         }
       } else {
-        print(
-          'ApiService: Erreur de récupération du profil utilisateur après login réussi: ${userProfileResponse['message']}',
-        );
+        print('ApiService: Erreur de récupération du profil utilisateur après login réussi: ${userProfileResponse['message']}');
         await clearAuthToken();
         return {
           'success': false,
-          'message':
-              'Connexion réussie, mais impossible de récupérer le profil utilisateur. Veuillez réessayer.',
+          'message': 'Connexion réussie, mais impossible de récupérer le profil utilisateur. Veuillez réessayer.',
         };
       }
     } else {
       return {
         'success': false,
-        'message':
-            'Réponse d\'authentification incomplète (token manquant dans la réponse de login).',
+        'message': 'Réponse d\'authentification incomplète (token manquant dans la réponse de login).',
       };
     }
   }
 
-  // La méthode register aura une logique similaire
+  // Register method remains the same
   Future<Map<String, dynamic>> register(
     String nom,
     String prenom,
@@ -296,32 +279,25 @@ class ApiService {
             'user': user,
           };
         } catch (e) {
-          print(
-            'ApiService: Erreur de parsing du profil utilisateur après enregistrement: $e',
-          );
+          print('ApiService: Erreur de parsing du profil utilisateur après enregistrement: $e');
           await clearAuthToken();
           return {
             'success': false,
-            'message':
-                'Inscription réussie, mais format du profil utilisateur invalide.',
+            'message': 'Inscription réussie, mais format du profil utilisateur invalide.',
           };
         }
       } else {
-        print(
-          'ApiService: Erreur de récupération du profil utilisateur après inscription réussie: ${userProfileResponse['message']}',
-        );
+        print('ApiService: Erreur de récupération du profil utilisateur après inscription réussie: ${userProfileResponse['message']}');
         await clearAuthToken();
         return {
           'success': false,
-          'message':
-              'Inscription réussie, mais impossible de récupérer le profil utilisateur. Veuillez vous connecter manuellement.',
+          'message': 'Inscription réussie, mais impossible de récupérer le profil utilisateur. Veuillez vous connecter manuellement.',
         };
       }
     } else {
       return {
         'success': false,
-        'message':
-            'Inscription réussie, mais réponse API incomplète (token manquant).',
+        'message': 'Inscription réussie, mais réponse API incomplète (token manquant).',
       };
     }
   }
@@ -343,7 +319,6 @@ class ApiService {
     return await _get('auth/profile', authorized: true);
   }
 
-  // ... (Autres méthodes pour les tickets, inchangées)
   Future<Map<String, dynamic>> getTickets({
     String? status,
     String? type,
@@ -364,18 +339,15 @@ class ApiService {
     try {
       final headers = await _getHeaders(authorized: true);
       final response = await http.get(uri, headers: headers);
-      print(
-        'ApiService: GET $endpoint (Status: ${response.statusCode}): ${response.body}',
-      );
+      print('ApiService: GET $endpoint (Status: ${response.statusCode}): ${response.body}');
       final responseData = json.decode(response.body) as Map<String, dynamic>;
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
         List<Ticket> tickets = [];
         if (responseData['data'] != null && responseData['data'] is List) {
-          tickets =
-              (responseData['data'] as List)
-                  .map((item) => Ticket.fromJson(item as Map<String, dynamic>))
-                  .toList();
+          tickets = (responseData['data'] as List)
+              .map((item) => Ticket.fromJson(item as Map<String, dynamic>))
+              .toList();
         }
         return {
           'success': true,
@@ -383,9 +355,7 @@ class ApiService {
           'message': responseData['message'] ?? 'Succès',
         };
       } else {
-        String errorMessage =
-            responseData['message'] ??
-            'Erreur lors de la récupération des tickets.';
+        String errorMessage = responseData['message'] ?? 'Erreur lors de la récupération des tickets.';
         return {
           'success': false,
           'message': errorMessage,
@@ -417,23 +387,21 @@ class ApiService {
     return await _post('tickets/$ticketId/take_charge', {}, authorized: true);
   }
 
-  // This is the createTicket method that should be used
+  /// Creates a new ticket
   Future<Map<String, dynamic>> createTicket({
     required String typeProbleme,
     required String description,
     required String adresse,
-    required String
-    dateRdv, // YYYY-MM-DD format expected by Laravel date validation
-    List<String>? photosBase64, // List of base64 encoded image strings
+    required String dateRdv,
+    List<String>? photosBase64,
   }) async {
     final body = {
       'type_probleme': typeProbleme,
       'description': description,
       'adresse': adresse,
       'date_rdv': dateRdv,
-      'photos': photosBase64 ?? [], // Send empty array if no photos
+      'photos': photosBase64 ?? [],
     };
-    // Use the _post helper method directly. It handles URL, headers, and response parsing.
     return await _post('tickets', body, authorized: true);
   }
 }
