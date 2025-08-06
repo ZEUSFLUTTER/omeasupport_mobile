@@ -10,12 +10,13 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final ApiService _apiService;
 
   AuthBloc({required ApiService apiService})
-      : _apiService = apiService,
-        super(AuthInitial()) {
+    : _apiService = apiService,
+      super(AuthInitial()) {
     on<AuthCheckRequested>(_onAuthCheckRequested);
     on<AuthLoginRequested>(_onAuthLoginRequested);
     on<AuthRegisterRequested>(_onAuthRegisterRequested);
     on<AuthLogoutRequested>(_onAuthLogoutRequested);
+    on<AuthProfileUpdateRequested>(_onAuthProfileUpdateRequested);
   }
 
   Future<void> _onAuthCheckRequested(
@@ -32,18 +33,23 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           emit(AuthAuthenticated(user: user));
         } else {
           await _apiService.clearAuthToken();
-          emit(const AuthUnauthenticated(
-            message: 'Session expirée, veuillez vous reconnecter.',
-          ));
+          emit(
+            const AuthUnauthenticated(
+              message: 'Session expirée, veuillez vous reconnecter.',
+            ),
+          );
         }
       } else {
         emit(const AuthUnauthenticated());
       }
     } catch (e) {
       await _apiService.clearAuthToken();
-      emit(AuthError(
-        message: 'Erreur de connexion automatique. Veuillez vous reconnecter.',
-      ));
+      emit(
+        AuthError(
+          message:
+              'Erreur de connexion automatique. Veuillez vous reconnecter.',
+        ),
+      );
     }
   }
 
@@ -66,9 +72,11 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         emit(AuthError(message: result['message'] ?? 'Erreur de connexion'));
       }
     } catch (e) {
-      emit(AuthError(
-        message: 'Erreur inattendue lors de la connexion: ${e.toString()}',
-      ));
+      emit(
+        AuthError(
+          message: 'Erreur inattendue lors de la connexion: ${e.toString()}',
+        ),
+      );
     }
   }
 
@@ -100,9 +108,12 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         emit(AuthError(message: result['message'] ?? 'Erreur d\'inscription'));
       }
     } catch (e) {
-      emit(AuthError(
-        message: 'Erreur inattendue lors de l\'enregistrement: ${e.toString()}',
-      ));
+      emit(
+        AuthError(
+          message:
+              'Erreur inattendue lors de l\'enregistrement: ${e.toString()}',
+        ),
+      );
     }
   }
 
@@ -113,5 +124,30 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     emit(AuthLoading());
     await _apiService.logout();
     emit(const AuthUnauthenticated());
+  }
+
+  Future<void> _onAuthProfileUpdateRequested(
+    AuthProfileUpdateRequested event,
+    Emitter<AuthState> emit,
+  ) async {
+    // Ne pas émettre de loading state car c'est juste une mise à jour silencieuse
+    try {
+      final profileResult = await _apiService.getUserProfile();
+      if (profileResult['success'] == true && profileResult['data'] != null) {
+        final user = User.fromJson(profileResult['data']);
+        emit(AuthAuthenticated(user: user));
+      } else {
+        // En cas d'erreur, on garde l'état actuel sans émettre d'erreur
+        // car c'est juste une mise à jour de profil
+        print(
+          'AuthBloc: Erreur lors de la mise à jour du profil: ${profileResult['message']}',
+        );
+      }
+    } catch (e) {
+      // En cas d'erreur, on garde l'état actuel
+      print(
+        'AuthBloc: Erreur lors de la mise à jour du profil: ${e.toString()}',
+      );
+    }
   }
 }

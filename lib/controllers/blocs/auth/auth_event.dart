@@ -12,6 +12,8 @@ abstract class AuthEvent extends Equatable {
 
 class AuthCheckRequested extends AuthEvent {}
 
+class AuthProfileUpdateRequested extends AuthEvent {}
+
 class AuthLoginRequested extends AuthEvent {
   final String email;
   final String password;

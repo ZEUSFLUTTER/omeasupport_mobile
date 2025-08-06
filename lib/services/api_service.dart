@@ -76,7 +76,9 @@ class ApiService {
         body: json.encode(body),
       );
 
-      print('ApiService: POST $endpoint (Status: ${response.statusCode}): ${response.body}');
+      print(
+        'ApiService: POST $endpoint (Status: ${response.statusCode}): ${response.body}',
+      );
 
       final responseData = json.decode(response.body) as Map<String, dynamic>;
 
@@ -118,12 +120,15 @@ class ApiService {
   }
 
   /// Extrait les données de la réponse selon l'endpoint
-  dynamic _extractDataFromResponse(Map<String, dynamic> responseData, String endpoint) {
+  dynamic _extractDataFromResponse(
+    Map<String, dynamic> responseData,
+    String endpoint,
+  ) {
     // Pour les tickets, Laravel retourne directement le ticket
     if (endpoint == 'tickets') {
       return responseData['ticket'] ?? responseData['data'];
     }
-    
+
     // Pour les autres endpoints, utiliser 'data' par défaut
     return responseData['data'];
   }
@@ -141,7 +146,9 @@ class ApiService {
       final headers = await _getHeaders(authorized: authorized);
       final response = await http.get(url, headers: headers);
 
-      print('ApiService: GET $endpoint (Status: ${response.statusCode}): ${response.body}');
+      print(
+        'ApiService: GET $endpoint (Status: ${response.statusCode}): ${response.body}',
+      );
 
       final responseData = json.decode(response.body) as Map<String, dynamic>;
 
@@ -208,25 +215,32 @@ class ApiService {
             'user': user,
           };
         } catch (e) {
-          print('ApiService: Erreur de parsing du profil utilisateur après login: $e');
+          print(
+            'ApiService: Erreur de parsing du profil utilisateur après login: $e',
+          );
           await clearAuthToken();
           return {
             'success': false,
-            'message': 'Connexion réussie, mais format du profil utilisateur invalide.',
+            'message':
+                'Connexion réussie, mais format du profil utilisateur invalide.',
           };
         }
       } else {
-        print('ApiService: Erreur de récupération du profil utilisateur après login réussi: ${userProfileResponse['message']}');
+        print(
+          'ApiService: Erreur de récupération du profil utilisateur après login réussi: ${userProfileResponse['message']}',
+        );
         await clearAuthToken();
         return {
           'success': false,
-          'message': 'Connexion réussie, mais impossible de récupérer le profil utilisateur. Veuillez réessayer.',
+          'message':
+              'Connexion réussie, mais impossible de récupérer le profil utilisateur. Veuillez réessayer.',
         };
       }
     } else {
       return {
         'success': false,
-        'message': 'Réponse d\'authentification incomplète (token manquant dans la réponse de login).',
+        'message':
+            'Réponse d\'authentification incomplète (token manquant dans la réponse de login).',
       };
     }
   }
@@ -279,25 +293,32 @@ class ApiService {
             'user': user,
           };
         } catch (e) {
-          print('ApiService: Erreur de parsing du profil utilisateur après enregistrement: $e');
+          print(
+            'ApiService: Erreur de parsing du profil utilisateur après enregistrement: $e',
+          );
           await clearAuthToken();
           return {
             'success': false,
-            'message': 'Inscription réussie, mais format du profil utilisateur invalide.',
+            'message':
+                'Inscription réussie, mais format du profil utilisateur invalide.',
           };
         }
       } else {
-        print('ApiService: Erreur de récupération du profil utilisateur après inscription réussie: ${userProfileResponse['message']}');
+        print(
+          'ApiService: Erreur de récupération du profil utilisateur après inscription réussie: ${userProfileResponse['message']}',
+        );
         await clearAuthToken();
         return {
           'success': false,
-          'message': 'Inscription réussie, mais impossible de récupérer le profil utilisateur. Veuillez vous connecter manuellement.',
+          'message':
+              'Inscription réussie, mais impossible de récupérer le profil utilisateur. Veuillez vous connecter manuellement.',
         };
       }
     } else {
       return {
         'success': false,
-        'message': 'Inscription réussie, mais réponse API incomplète (token manquant).',
+        'message':
+            'Inscription réussie, mais réponse API incomplète (token manquant).',
       };
     }
   }
@@ -339,15 +360,18 @@ class ApiService {
     try {
       final headers = await _getHeaders(authorized: true);
       final response = await http.get(uri, headers: headers);
-      print('ApiService: GET $endpoint (Status: ${response.statusCode}): ${response.body}');
+      print(
+        'ApiService: GET $endpoint (Status: ${response.statusCode}): ${response.body}',
+      );
       final responseData = json.decode(response.body) as Map<String, dynamic>;
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
         List<Ticket> tickets = [];
         if (responseData['data'] != null && responseData['data'] is List) {
-          tickets = (responseData['data'] as List)
-              .map((item) => Ticket.fromJson(item as Map<String, dynamic>))
-              .toList();
+          tickets =
+              (responseData['data'] as List)
+                  .map((item) => Ticket.fromJson(item as Map<String, dynamic>))
+                  .toList();
         }
         return {
           'success': true,
@@ -355,7 +379,9 @@ class ApiService {
           'message': responseData['message'] ?? 'Succès',
         };
       } else {
-        String errorMessage = responseData['message'] ?? 'Erreur lors de la récupération des tickets.';
+        String errorMessage =
+            responseData['message'] ??
+            'Erreur lors de la récupération des tickets.';
         return {
           'success': false,
           'message': errorMessage,
@@ -403,5 +429,117 @@ class ApiService {
       'photos': photosBase64 ?? [],
     };
     return await _post('tickets', body, authorized: true);
+  }
+
+  /// Met à jour la photo de profil de l'utilisateur connecté
+  Future<Map<String, dynamic>> updateProfileImage(String imageBase64) async {
+    try {
+      await ensureTokenLoaded();
+
+      final url = Uri.parse('$_baseUrl/auth/update-profile-image');
+      final headers = await _getHeaders(authorized: true);
+
+      // Créer un body multipart pour l'upload de fichier
+      final body = json.encode({'photo_profile': imageBase64});
+
+      final response = await http.put(url, headers: headers, body: body);
+
+      print(
+        'ApiService: PUT update-profile-image (Status: ${response.statusCode}): ${response.body}',
+      );
+
+      final responseData = json.decode(response.body) as Map<String, dynamic>;
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return {
+          'success': true,
+          'data': responseData['data'],
+          'message':
+              responseData['message'] ??
+              'Photo de profil mise à jour avec succès',
+        };
+      } else {
+        String errorMessage =
+            responseData['message'] ??
+            'Erreur lors de la mise à jour de la photo';
+        if (responseData['errors'] != null && responseData['errors'] is Map) {
+          responseData['errors'].forEach((key, value) {
+            if (value is List) {
+              errorMessage += '\n- ${value.join(", ")}';
+            }
+          });
+        }
+        return {
+          'success': false,
+          'message': errorMessage,
+          'status_code': response.statusCode,
+        };
+      }
+    } on http.ClientException catch (e) {
+      print(
+        'ApiService: Erreur réseau ClientException pour update-profile-image: $e',
+      );
+      return {
+        'success': false,
+        'message': 'Erreur réseau. Impossible de se connecter au serveur.',
+      };
+    } catch (e) {
+      print('ApiService: Erreur inattendue pour update-profile-image: $e');
+      return {
+        'success': false,
+        'message': 'Une erreur inattendue est survenue.',
+      };
+    }
+  }
+
+  /// Supprime la photo de profil de l'utilisateur connecté
+  Future<Map<String, dynamic>> removeProfileImage() async {
+    try {
+      await ensureTokenLoaded();
+
+      final url = Uri.parse('$_baseUrl/auth/remove-profile-image');
+      final headers = await _getHeaders(authorized: true);
+
+      final response = await http.delete(url, headers: headers);
+
+      print(
+        'ApiService: DELETE remove-profile-image (Status: ${response.statusCode}): ${response.body}',
+      );
+
+      final responseData = json.decode(response.body) as Map<String, dynamic>;
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return {
+          'success': true,
+          'data': responseData['data'],
+          'message':
+              responseData['message'] ??
+              'Photo de profil supprimée avec succès',
+        };
+      } else {
+        String errorMessage =
+            responseData['message'] ??
+            'Erreur lors de la suppression de la photo';
+        return {
+          'success': false,
+          'message': errorMessage,
+          'status_code': response.statusCode,
+        };
+      }
+    } on http.ClientException catch (e) {
+      print(
+        'ApiService: Erreur réseau ClientException pour remove-profile-image: $e',
+      );
+      return {
+        'success': false,
+        'message': 'Erreur réseau. Impossible de se connecter au serveur.',
+      };
+    } catch (e) {
+      print('ApiService: Erreur inattendue pour remove-profile-image: $e');
+      return {
+        'success': false,
+        'message': 'Une erreur inattendue est survenue.',
+      };
+    }
   }
 }
