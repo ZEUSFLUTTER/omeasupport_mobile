@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'dart:convert';
 import 'package:omeamobile/controllers/blocs/auth/auth_bloc.dart';
 import 'package:omeamobile/controllers/blocs/auth/auth_state.dart';
 import 'package:omeamobile/controllers/blocs/tickets/ticket_bloc.dart';
@@ -439,6 +440,10 @@ class _DashboardContentState extends State<_DashboardContent>
                         color: Colors.grey[600],
                       ),
                       const SizedBox(width: 4),
+                      Text(
+                        '${ticket.scheduledTime.day} ${_getMonthName(ticket.scheduledTime.month)} ${ticket.scheduledTime.year}',
+                        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 4),
@@ -493,13 +498,18 @@ class _DashboardContentState extends State<_DashboardContent>
                 ),
                 const SizedBox(height: 12),
                 Container(
-                  width: 50,
-                  height: 50,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[200],
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(icon, size: 30, color: Colors.grey[600]),
+                  child:
+                      ticket.photoBase64 != null &&
+                              ticket.photoBase64!.isNotEmpty
+                          ? Image.memory(
+                            base64Decode(ticket.photoBase64!),
+                            fit: BoxFit.cover,
+                          )
+                          : Icon(
+                            Icons.photo_camera,
+                            size: 24,
+                            color: Colors.grey[600],
+                          ),
                 ),
               ],
             ),

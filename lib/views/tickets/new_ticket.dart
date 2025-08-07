@@ -61,16 +61,31 @@ class _NewTicketScreenState extends State<NewTicketScreen> {
   }
 
   Future<void> _selectDate(BuildContext context) async {
-    final DateTime? picked = await showDatePicker(
+    final DateTime? pickedDate = await showDatePicker(
       context: context,
       initialDate: DateTime.now(),
       firstDate: DateTime.now(),
       lastDate: DateTime(2030),
     );
-    if (picked != null) {
-      setState(() {
-        _dateRdvController.text = DateFormat('yyyy-MM-dd').format(picked);
-      });
+    if (pickedDate != null) {
+      final TimeOfDay? pickedTime = await showTimePicker(
+        context: context,
+        initialTime: TimeOfDay.now(),
+      );
+      if (pickedTime != null) {
+        final DateTime fullDateTime = DateTime(
+          pickedDate.year,
+          pickedDate.month,
+          pickedDate.day,
+          pickedTime.hour,
+          pickedTime.minute,
+        );
+        setState(() {
+          _dateRdvController.text = DateFormat(
+            'yyyy-MM-dd HH:mm',
+          ).format(fullDateTime);
+        });
+      }
     }
   }
 

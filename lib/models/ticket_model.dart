@@ -22,7 +22,8 @@ class Ticket {
   final TicketStatus status;
   final TicketPriority priority;
   final double? distance; // Optionnel pour le tableau de bord
-  final String? technicianName; // Si un technicien est assigné
+  final String? technicianName;
+  final String? photoBase64; // Si un technicien est assigné
 
   Ticket({
     required this.id,
@@ -35,6 +36,7 @@ class Ticket {
     required this.priority,
     this.distance,
     this.technicianName,
+    this.photoBase64,
   });
 
   factory Ticket.fromJson(Map<String, dynamic> json) {
@@ -91,6 +93,7 @@ class Ticket {
               ? (json['distance'] as num).toDouble()
               : null,
       technicianName: json['technician_name'] as String?,
+      photoBase64: json['photo_base64'] as String?,
     );
   }
 
@@ -106,6 +109,7 @@ class Ticket {
       'priority': priority.toString().split('.').last,
       'distance': distance,
       'technician_name': technicianName,
+      'photo_base64': photoBase64,
     };
   }
 }
