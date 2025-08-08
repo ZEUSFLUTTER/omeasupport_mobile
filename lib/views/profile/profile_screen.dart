@@ -16,7 +16,8 @@ import 'package:omeamobile/utils/snackbar_helper.dart';
 import 'package:omeamobile/views/auth/login_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  final VoidCallback? onSynchronize;
+  const ProfileScreen({super.key, this.onSynchronize});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -439,9 +440,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             context,
             Icons.sync_outlined,
             'Synchronisation',
-            () {
-              // Action pour Synchronisation
-            },
+            widget.onSynchronize ?? () {},
           ),
         ],
       ),

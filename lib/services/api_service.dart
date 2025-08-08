@@ -7,8 +7,8 @@ import 'package:omeamobile/models/user_model.dart';
 import 'package:omeamobile/models/ticket_model.dart';
 
 class ApiService {
-  // static const String _baseUrl = 'http://127.0.0.1:8000/api';
-  static const String _baseUrl = 'http://10.0.2.2:8000/api';
+  static const String _baseUrl = 'http://127.0.0.1:8000/api';
+  // static const String _baseUrl = 'http://10.0.2.2:8000/api';
   static const String _authTokenKey = 'authToken';
 
   String? _authToken;
@@ -23,7 +23,6 @@ class ApiService {
   Future<void> _loadAuthToken() async {
     final prefs = await SharedPreferences.getInstance();
     _authToken = prefs.getString(_authTokenKey);
-    print('ApiService: Token chargé au démarrage: $_authToken');
   }
 
   Future<void> ensureTokenLoaded() async {
@@ -75,10 +74,6 @@ class ApiService {
         url,
         headers: headers,
         body: json.encode(body),
-      );
-
-      print(
-        'ApiService: POST $endpoint (Status: ${response.statusCode}): ${response.body}',
       );
 
       final responseData = json.decode(response.body) as Map<String, dynamic>;
@@ -432,6 +427,49 @@ class ApiService {
     return await _post('tickets', body, authorized: true);
   }
 
+  /// Supprime un ticket par son ID
+  Future<Map<String, dynamic>> deleteTicket(String ticketId) async {
+    try {
+      await ensureTokenLoaded();
+      final url = Uri.parse('$_baseUrl/tickets/$ticketId');
+      final headers = await _getHeaders(authorized: true);
+      final response = await http.delete(url, headers: headers);
+      print(
+        'ApiService: DELETE tickets/$ticketId (Status: \\${response.statusCode}): \\${response.body}',
+      );
+      final responseData = json.decode(response.body) as Map<String, dynamic>;
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return {
+          'success': true,
+          'message': responseData['message'] ?? 'Ticket supprimé avec succès',
+        };
+      } else {
+        String errorMessage =
+            responseData['message'] ??
+            'Erreur lors de la suppression du ticket.';
+        return {
+          'success': false,
+          'message': errorMessage,
+          'status_code': response.statusCode,
+        };
+      }
+    } on http.ClientException catch (e) {
+      print(
+        'ApiService: Erreur réseau ClientException pour DELETE tickets/$ticketId: $e',
+      );
+      return {
+        'success': false,
+        'message': 'Erreur réseau. Impossible de se connecter au serveur.',
+      };
+    } catch (e) {
+      print('ApiService: Erreur inattendue pour DELETE tickets/$ticketId: $e');
+      return {
+        'success': false,
+        'message': 'Une erreur inattendue est survenue.',
+      };
+    }
+  }
+
   /// Met à jour la photo de profil de l'utilisateur connecté
   Future<Map<String, dynamic>> updateProfileImage(String imageBase64) async {
     try {
@@ -537,6 +575,48 @@ class ApiService {
       };
     } catch (e) {
       print('ApiService: Erreur inattendue pour remove-profile-image: $e');
+      return {
+        'success': false,
+        'message': 'Une erreur inattendue est survenue.',
+      };
+    }
+  }
+
+  /// Récupère le lien de paiement pour un ticket donné
+  Future<Map<String, dynamic>> getPaymentLink(String ticketId) async {
+    try {
+      await ensureTokenLoaded();
+      final url = Uri.parse('$_baseUrl/tickets/$ticketId/payment-link');
+      final headers = await _getHeaders(authorized: true);
+      final response = await http.get(url, headers: headers);
+      print(
+        'ApiService: GET payment-link (Status: \\${response.statusCode}): \\${response.body}',
+      );
+      final responseData = json.decode(response.body) as Map<String, dynamic>;
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return {
+          'success': true,
+          'url': responseData['data']?['url'],
+          'message': responseData['message'] ?? 'Lien de paiement généré',
+        };
+      } else {
+        String errorMessage =
+            responseData['message'] ??
+            'Erreur lors de la génération du lien de paiement.';
+        return {
+          'success': false,
+          'message': errorMessage,
+          'status_code': response.statusCode,
+        };
+      }
+    } on http.ClientException catch (e) {
+      print('ApiService: Erreur réseau ClientException pour payment-link: $e');
+      return {
+        'success': false,
+        'message': 'Erreur réseau. Impossible de se connecter au serveur.',
+      };
+    } catch (e) {
+      print('ApiService: Erreur inattendue pour payment-link: $e');
       return {
         'success': false,
         'message': 'Une erreur inattendue est survenue.',

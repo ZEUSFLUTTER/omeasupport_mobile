@@ -22,21 +22,12 @@ class NewTicketScreen extends StatefulWidget {
 class _NewTicketScreenState extends State<NewTicketScreen> {
   final _formKey = GlobalKey<FormState>();
 
+  final TextEditingController _titleController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _addressController = TextEditingController();
   final TextEditingController _dateRdvController = TextEditingController();
-  String? _selectedProblemType;
 
   final List<XFile> _selectedPhotos = [];
-
-  final List<String> _problemTypes = [
-    'Problème d\'imprimante',
-    'Configuration wifi',
-    'Problème de gazinière',
-    'Panne réseau',
-    'Logiciel lent',
-    'Autre',
-  ];
 
   final ImagePicker _picker = ImagePicker();
 
@@ -107,7 +98,7 @@ class _NewTicketScreenState extends State<NewTicketScreen> {
 
       context.read<TicketBloc>().add(
         TicketCreateRequested(
-          typeProbleme: _selectedProblemType!,
+          typeProbleme: _titleController.text.trim(),
           description: _descriptionController.text.trim(),
           adresse: _addressController.text.trim(),
           dateRdv: DateTime.parse(_dateRdvController.text),
@@ -159,35 +150,23 @@ class _NewTicketScreenState extends State<NewTicketScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Type',
+                    'Titre du problème',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
-                  DropdownButtonFormField<String>(
-                    value: _selectedProblemType,
+                  TextFormField(
+                    controller: _titleController,
                     decoration: const InputDecoration(
-                      hintText: 'Sélectionner',
+                      hintText: 'Ex: Problème d\'imprimante, panne réseau...',
                       border: OutlineInputBorder(),
                       contentPadding: EdgeInsets.symmetric(
                         horizontal: 12,
                         vertical: 16,
                       ),
                     ),
-                    items:
-                        _problemTypes.map((String type) {
-                          return DropdownMenuItem<String>(
-                            value: type,
-                            child: Text(type),
-                          );
-                        }).toList(),
-                    onChanged: (String? newValue) {
-                      setState(() {
-                        _selectedProblemType = newValue;
-                      });
-                    },
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return 'Veuillez sélectionner un type de problème';
+                        return 'Veuillez saisir le titre de votre problème';
                       }
                       return null;
                     },
