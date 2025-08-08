@@ -184,14 +184,14 @@ class _DashboardContent extends StatelessWidget {
                           ),
                           const SizedBox(height: 24),
                           const Text(
-                            'Tickets récents',
+                            'Tous les tickets',
                             style: TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                           const SizedBox(height: 16),
-                          _buildRecentTicketsList(
+                          _buildAllTicketsList(
                             context,
                             allTickets,
                             isActionLoading,
@@ -542,28 +542,21 @@ class _DashboardContent extends StatelessWidget {
     );
   }
 
-  Widget _buildRecentTicketsList(
+  Widget _buildAllTicketsList(
     BuildContext context,
     List<Ticket> allTickets,
     bool isActionLoading,
   ) {
     if (allTickets.isEmpty) {
-      return const Center(child: Text('Aucun ticket récent.'));
+      return const Center(child: Text('Aucun ticket.'));
     }
-    final recentTickets =
-        allTickets
-            .where((ticket) => ticket.status != TicketStatus.completed)
-            .take(5)
-            .toList();
-
     return Column(
-      children:
-          recentTickets.map((ticket) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 8.0),
-              child: _buildTicketListItem(context, ticket, isActionLoading),
-            );
-          }).toList(),
+      children: allTickets.map((ticket) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 8.0),
+          child: _buildTicketListItem(context, ticket, isActionLoading),
+        );
+      }).toList(),
     );
   }
 

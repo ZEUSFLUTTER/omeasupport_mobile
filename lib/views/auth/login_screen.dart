@@ -302,25 +302,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 16),
                   const Text('ou', style: TextStyle(color: Colors.grey)),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: () {
-                        // Gérer l'authentification biométrique
-                      },
-                      icon: const Icon(Icons.fingerprint),
-                      label: const Text('Authentification biométrique'),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        side: BorderSide(color: Theme.of(context).primaryColor),
-                        foregroundColor: Theme.of(context).primaryColor,
-                      ),
-                    ),
-                  ),
                   const SizedBox(height: 24),
                   TextButton(
                     onPressed: () {

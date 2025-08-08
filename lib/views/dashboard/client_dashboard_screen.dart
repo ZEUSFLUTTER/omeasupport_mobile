@@ -34,8 +34,8 @@ class _ClientDashboardScreenState extends State<ClientDashboardScreen> {
 
     _widgetOptions = <Widget>[
       _DashboardContent(),
-      TicketsScreen(),
-      const Center(child: Text('Historique')),
+      _DashboardContent(showSearchBar: false, showFilterTabs: false),
+      _HistoriqueTicketsList(),
       ProfileScreen(),
     ];
   }
@@ -95,6 +95,9 @@ class _ClientDashboardScreenState extends State<ClientDashboardScreen> {
 }
 
 class _DashboardContent extends StatefulWidget {
+  final bool showSearchBar;
+  final bool showFilterTabs;
+  const _DashboardContent({this.showSearchBar = true, this.showFilterTabs = true, Key? key}) : super(key: key);
   @override
   State<_DashboardContent> createState() => _DashboardContentState();
 }
@@ -199,18 +202,20 @@ class _DashboardContentState extends State<_DashboardContent>
               child: Column(
                 children: [
                   _buildHeader(context, user, notificationCount),
-                  _buildSearchBar(context),
-                  _buildTicketFilterTabs(context),
+                  if (widget.showSearchBar) _buildSearchBar(context),
+                  if (widget.showFilterTabs) _buildTicketFilterTabs(context),
                   Expanded(
-                    child: TabBarView(
-                      controller: _tabController,
-                      children: [
-                        _buildTicketListView(context, filteredTickets),
-                        _buildTicketListView(context, filteredTickets),
-                        _buildTicketListView(context, filteredTickets),
-                        _buildTicketListView(context, filteredTickets),
-                      ],
-                    ),
+                    child: widget.showFilterTabs
+                        ? TabBarView(
+                            controller: _tabController,
+                            children: [
+                              _buildTicketListView(context, filteredTickets),
+                              _buildTicketListView(context, filteredTickets),
+                              _buildTicketListView(context, filteredTickets),
+                              _buildTicketListView(context, filteredTickets),
+                            ],
+                          )
+                        : _buildTicketListView(context, allTickets),
                   ),
                 ],
               ),
@@ -337,28 +342,37 @@ class _DashboardContentState extends State<_DashboardContent>
 
   Widget _buildTicketFilterTabs(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-      child: Container(
-        height: 40,
-        decoration: BoxDecoration(
-          color: Colors.grey[200],
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: TabBar(
-          controller: _tabController,
-          indicator: BoxDecoration(
-            borderRadius: BorderRadius.circular(10),
-            color: Theme.of(context).primaryColor,
+      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 12.0),
+      child: Material(
+        elevation: 2,
+        borderRadius: BorderRadius.circular(16),
+        color: Colors.white,
+        child: Container(
+          height: 52,
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.grey.shade200, width: 1),
           ),
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.grey[700],
-          labelStyle: const TextStyle(fontWeight: FontWeight.bold),
-          tabs: const [
-            Tab(text: 'Tous'),
-            Tab(text: 'En cours'),
-            Tab(text: 'En attente'),
-            Tab(text: 'Terminé'),
-          ],
+          child: TabBar(
+            controller: _tabController,
+            indicator: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              color: Theme.of(context).primaryColor,
+            ),
+            indicatorSize: TabBarIndicatorSize.tab,
+            labelColor: Colors.white,
+            unselectedLabelColor: Colors.grey[700],
+            labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal, fontSize: 15),
+            tabs: const [
+              Tab(child: Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: Text('Tous'))),
+              Tab(child: Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: Text('En cours'))),
+              Tab(child: Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: Text('En attente'))),
+              Tab(child: Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: Text('Terminé'))),
+            ],
+          ),
         ),
       ),
     );
@@ -537,6 +551,39 @@ class _DashboardContentState extends State<_DashboardContent>
       'Déc',
     ];
     return monthNames[month];
+  }
+}
+
+class _HistoriqueTicketsList extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<AuthBloc, AuthState>(
+      builder: (context, authState) {
+        if (authState is! AuthAuthenticated) {
+          return const Center(child: Text('Erreur: Utilisateur non connecté.'));
+        }
+        return BlocBuilder<TicketBloc, TicketState>(
+          builder: (context, state) {
+            List<Ticket> completedTickets = [];
+            if (state is TicketLoaded || state is TicketCreated) {
+              final allTickets = state is TicketLoaded ? state.allTickets : (state as TicketCreated).allTickets;
+              completedTickets = allTickets.where((ticket) => ticket.status == TicketStatus.completed).toList();
+            }
+            if (completedTickets.isEmpty) {
+              return const Center(child: Text('Aucun ticket terminé.'));
+            }
+            return ListView.builder(
+              padding: const EdgeInsets.all(16.0),
+              itemCount: completedTickets.length,
+              itemBuilder: (context, index) {
+                final ticket = completedTickets[index];
+                return _DashboardContentState()._buildClientTicketListItem(context, ticket);
+              },
+            );
+          },
+        );
+      },
+    );
   }
 }
 
