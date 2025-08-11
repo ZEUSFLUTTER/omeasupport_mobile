@@ -4,9 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:omeamobile/controllers/blocs/auth/auth_bloc.dart';
 import 'package:omeamobile/controllers/blocs/auth/auth_state.dart';
-import 'package:omeamobile/controllers/blocs/tickets/ticket_bloc.dart';
-import 'package:omeamobile/controllers/blocs/tickets/ticket_event.dart';
-import 'package:omeamobile/controllers/blocs/tickets/ticket_state.dart';
+import 'package:omeamobile/controllers/blocs/technician_dashboard/technician_dashboard_bloc.dart';
+import 'package:omeamobile/controllers/blocs/technician_dashboard/technician_dashboard_event.dart';
+import 'package:omeamobile/controllers/blocs/technician_dashboard/technician_dashboard_state.dart';
+import 'package:omeamobile/models/technician_dashboard_model.dart';
 import 'package:omeamobile/models/ticket_model.dart';
 import 'package:omeamobile/models/user_model.dart';
 import 'package:omeamobile/utils/snackbar_helper.dart';
@@ -29,14 +30,16 @@ class _TechnicianDashboardScreenState extends State<TechnicianDashboardScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<TicketBloc>().add(TicketFetchDashboardDataRequested());
+      context.read<TechnicianDashboardBloc>().add(
+        TechnicianDashboardDataRequested(),
+      );
     });
 
     _widgetOptions = <Widget>[
       _DashboardContent(),
-      TicketsScreen(),
+      const TicketsScreen(),
       const Center(child: Text('Historique')),
-      ProfileScreen(),
+      const ProfileScreen(),
     ];
   }
 
@@ -89,65 +92,49 @@ class _DashboardContent extends StatelessWidget {
 
         final user = authState.user;
 
-        return BlocConsumer<TicketBloc, TicketState>(
+        return BlocConsumer<TechnicianDashboardBloc, TechnicianDashboardState>(
           listener: (context, state) {
-            if (state is TicketActionSuccess) {
-              SnackBarHelper.showSuccess(
-                context: context,
-                message: state.message,
-              );
-            } else if (state is TicketError) {
+            if (state is TechnicianDashboardError) {
               SnackBarHelper.showError(
                 context: context,
                 message: state.message,
                 actionLabel: 'Réessayer',
                 onActionPressed: () {
-                  context.read<TicketBloc>().add(
-                    TicketFetchDashboardDataRequested(),
+                  context.read<TechnicianDashboardBloc>().add(
+                    TechnicianDashboardDataRequested(),
                   );
                 },
               );
             }
           },
           builder: (context, state) {
-            if (state is TicketLoading) {
+            if (state is TechnicianDashboardLoading) {
               return const Center(child: CircularProgressIndicator());
             }
 
-            List<Ticket> allTickets = [];
-            List<Ticket> todaysTickets = [];
-            List<Ticket> pendingTickets = [];
-            List<Ticket> completedTickets = [];
-            Ticket? activeTicket;
+            TechnicianDashboardData? dashboardData;
             bool isActionLoading = false;
 
-            if (state is TicketLoaded) {
-              allTickets = state.allTickets;
-              todaysTickets = state.todaysTickets;
-              pendingTickets = state.pendingTickets;
-              completedTickets = state.completedTickets;
-              activeTicket = state.activeTicket;
-            } else if (state is TicketActionLoading) {
-              allTickets = state.allTickets;
-              todaysTickets = state.todaysTickets;
-              pendingTickets = state.pendingTickets;
-              completedTickets = state.completedTickets;
-              activeTicket = state.activeTicket;
+            if (state is TechnicianDashboardLoaded) {
+              dashboardData = state.dashboardData;
+            } else if (state is TechnicianDashboardActionLoading) {
+              dashboardData = state.dashboardData;
               isActionLoading = true;
-            } else if (state is TicketActionSuccess) {
-              allTickets = state.allTickets;
-              todaysTickets = state.todaysTickets;
-              pendingTickets = state.pendingTickets;
-              completedTickets = state.completedTickets;
-              activeTicket = state.activeTicket;
+            } else if (state is TechnicianDashboardError) {
+              return _buildErrorView(context, state.message);
             }
 
-            final int notificationCount = pendingTickets.length;
+            if (dashboardData == null) {
+              return _buildErrorView(context, 'Aucune donnée disponible');
+            }
+
+            final notificationCount =
+                dashboardData.dashboardSummary.pendingTickets;
 
             return RefreshIndicator(
               onRefresh: () async {
-                context.read<TicketBloc>().add(
-                  TicketFetchDashboardDataRequested(),
+                context.read<TechnicianDashboardBloc>().add(
+                  TechnicianDashboardDataRequested(),
                 );
               },
               child: SingleChildScrollView(
@@ -171,15 +158,12 @@ class _DashboardContent extends StatelessWidget {
                           const SizedBox(height: 16),
                           _buildDailyOverviewGrid(
                             context,
-                            todaysTickets,
-                            pendingTickets,
-                            completedTickets,
-                            allTickets,
+                            dashboardData.dashboardSummary,
                           ),
                           const SizedBox(height: 24),
                           _buildActiveTicketCard(
                             context,
-                            activeTicket,
+                            dashboardData.activeTicket,
                             isActionLoading,
                           ),
                           const SizedBox(height: 24),
@@ -193,7 +177,7 @@ class _DashboardContent extends StatelessWidget {
                           const SizedBox(height: 16),
                           _buildAllTicketsList(
                             context,
-                            allTickets,
+                            dashboardData.allTickets,
                             isActionLoading,
                           ),
                         ],
@@ -206,6 +190,55 @@ class _DashboardContent extends StatelessWidget {
           },
         );
       },
+    );
+  }
+
+  Widget _buildErrorView(BuildContext context, String message) {
+    return RefreshIndicator(
+      onRefresh: () async {
+        context.read<TechnicianDashboardBloc>().add(
+          TechnicianDashboardDataRequested(),
+        );
+      },
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: SizedBox(
+          height: MediaQuery.of(context).size.height - 200,
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.error_outline, size: 64, color: Colors.grey[400]),
+                const SizedBox(height: 16),
+                Text(
+                  'Erreur de chargement',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey[600],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.grey[500]),
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    context.read<TechnicianDashboardBloc>().add(
+                      TechnicianDashboardDataRequested(),
+                    );
+                  },
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Réessayer'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -301,10 +334,7 @@ class _DashboardContent extends StatelessWidget {
 
   Widget _buildDailyOverviewGrid(
     BuildContext context,
-    List<Ticket> todaysTickets,
-    List<Ticket> pendingTickets,
-    List<Ticket> completedTickets,
-    List<Ticket> allTickets,
+    DashboardSummary summary,
   ) {
     return Row(
       children: [
@@ -314,7 +344,7 @@ class _DashboardContent extends StatelessWidget {
               _buildOverviewCard(
                 context,
                 'Tickets aujourd\'hui',
-                todaysTickets.length.toString(),
+                summary.ticketsToday.toString(),
                 Icons.assignment,
                 Colors.blue.shade100,
                 Colors.blue.shade700,
@@ -323,7 +353,7 @@ class _DashboardContent extends StatelessWidget {
               _buildOverviewCard(
                 context,
                 'Terminés',
-                completedTickets.length.toString(),
+                summary.completedTickets.toString(),
                 Icons.check_circle_outline,
                 Colors.green.shade100,
                 Colors.green.shade700,
@@ -338,7 +368,7 @@ class _DashboardContent extends StatelessWidget {
               _buildOverviewCard(
                 context,
                 'En attente',
-                pendingTickets.length.toString(),
+                summary.pendingTickets.toString(),
                 Icons.access_time_outlined,
                 Colors.orange.shade100,
                 Colors.orange.shade700,
@@ -347,7 +377,7 @@ class _DashboardContent extends StatelessWidget {
               _buildOverviewCard(
                 context,
                 'Distance',
-                '${allTickets.fold(0.0, (sum, item) => sum + (item.distance ?? 0)).toStringAsFixed(1)} km',
+                '${summary.distanceTraveled.toStringAsFixed(1)} km',
                 Icons.directions_car_outlined,
                 Colors.red.shade100,
                 Colors.red.shade700,
@@ -405,8 +435,38 @@ class _DashboardContent extends StatelessWidget {
     Ticket? activeTicket,
     bool isActionLoading,
   ) {
-    if (activeTicket == null || activeTicket.id.isEmpty) {
-      return const SizedBox.shrink();
+    if (activeTicket == null) {
+      return Card(
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            children: [
+              Icon(
+                Icons.check_circle_outline,
+                size: 48,
+                color: Colors.green[400],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Aucun ticket actif',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey[700],
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Tous vos tickets sont terminés ou aucune intervention en cours.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+              ),
+            ],
+          ),
+        ),
+      );
     }
 
     return Card(
@@ -518,16 +578,37 @@ class _DashboardContent extends StatelessWidget {
                     isActionLoading
                         ? null
                         : () {
-                          context.read<TicketBloc>().add(
-                            TicketStartInterventionRequested(
-                              ticketId: activeTicket.id,
-                            ),
-                          );
+                          if (activeTicket.status == TicketStatus.inProgress) {
+                            // Terminer l'intervention
+                            context.read<TechnicianDashboardBloc>().add(
+                              TechnicianEndInterventionRequested(
+                                ticketId: activeTicket.id,
+                              ),
+                            );
+                          } else {
+                            // Commencer l'intervention
+                            context.read<TechnicianDashboardBloc>().add(
+                              TechnicianStartInterventionRequested(
+                                ticketId: activeTicket.id,
+                              ),
+                            );
+                          }
                         },
-                icon: const Icon(Icons.play_arrow),
-                label: const Text('COMMENCER INTERVENTION'),
+                icon: Icon(
+                  activeTicket.status == TicketStatus.inProgress
+                      ? Icons.stop
+                      : Icons.play_arrow,
+                ),
+                label: Text(
+                  activeTicket.status == TicketStatus.inProgress
+                      ? 'TERMINER INTERVENTION'
+                      : 'COMMENCER INTERVENTION',
+                ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
+                  backgroundColor:
+                      activeTicket.status == TicketStatus.inProgress
+                          ? Colors.red
+                          : Colors.green,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(
@@ -548,15 +629,47 @@ class _DashboardContent extends StatelessWidget {
     bool isActionLoading,
   ) {
     if (allTickets.isEmpty) {
-      return const Center(child: Text('Aucun ticket.'));
+      return Card(
+        elevation: 1,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            children: [
+              Icon(
+                Icons.assignment_outlined,
+                size: 48,
+                color: Colors.grey[400],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Aucun ticket disponible',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey[700],
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Aucun ticket n\'est actuellement assigné.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey[600]),
+              ),
+            ],
+          ),
+        ),
+      );
     }
+
     return Column(
-      children: allTickets.map((ticket) {
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 8.0),
-          child: _buildTicketListItem(context, ticket, isActionLoading),
-        );
-      }).toList(),
+      children:
+          allTickets.map((ticket) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8.0),
+              child: _buildTicketListItem(context, ticket, isActionLoading),
+            );
+          }).toList(),
     );
   }
 
@@ -592,10 +705,10 @@ class _DashboardContent extends StatelessWidget {
         statusText = 'PENDING';
         statusBgColor = Colors.blue.shade100;
         statusTextColor = Colors.blue.shade700;
-        buttonText = 'Prendre en charge';
+        buttonText = 'Commencer';
         onPressedButton = () {
-          context.read<TicketBloc>().add(
-            TicketTakeChargeRequested(ticketId: ticket.id),
+          context.read<TechnicianDashboardBloc>().add(
+            TechnicianStartInterventionRequested(ticketId: ticket.id),
           );
         };
         break;
@@ -605,8 +718,8 @@ class _DashboardContent extends StatelessWidget {
         statusTextColor = Colors.orange.shade700;
         buttonText = 'Terminer';
         onPressedButton = () {
-          context.read<TicketBloc>().add(
-            TicketCompleteInterventionRequested(ticketId: ticket.id),
+          context.read<TechnicianDashboardBloc>().add(
+            TechnicianEndInterventionRequested(ticketId: ticket.id),
           );
         };
         break;
@@ -738,20 +851,44 @@ class _DashboardContent extends StatelessWidget {
                 ),
                 const Spacer(),
                 if (buttonText.isNotEmpty)
-                  SizedBox(
-                    height: 30,
-                    child: ElevatedButton(
-                      onPressed: isActionLoading ? null : onPressedButton,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: statusTextColor,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
+                  Flexible(
+                    // Ajouter Flexible ici
+                    child: SizedBox(
+                      height: 30,
+                      child: ElevatedButton(
+                        onPressed: isActionLoading ? null : onPressedButton,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: statusTextColor,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                          ), // Réduire padding
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          textStyle: const TextStyle(
+                            fontSize: 11,
+                          ), // Réduire taille police
                         ),
-                        textStyle: const TextStyle(fontSize: 12),
+                        child:
+                            isActionLoading
+                                ? const SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      Colors.white,
+                                    ),
+                                  ),
+                                )
+                                : Text(
+                                  buttonText,
+                                  overflow:
+                                      TextOverflow.ellipsis, // Ajouter overflow
+                                  maxLines: 1,
+                                ),
                       ),
-                      child: Text(buttonText),
                     ),
                   ),
               ],
@@ -760,12 +897,5 @@ class _DashboardContent extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-extension StringExtension on String {
-  String capitalize() {
-    if (isEmpty) return this;
-    return "${this[0].toUpperCase()}${substring(1)}";
   }
 }
