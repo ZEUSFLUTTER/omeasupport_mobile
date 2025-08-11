@@ -402,11 +402,11 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> completeIntervention(String ticketId) async {
-    return await _post('tickets/$ticketId/complete', {}, authorized: true);
+    return await _post('tickets/$ticketId/end', {}, authorized: true);
   }
 
   Future<Map<String, dynamic>> takeChargeOfTicket(String ticketId) async {
-    return await _post('tickets/$ticketId/take_charge', {}, authorized: true);
+    return await _post('tickets/$ticketId/postuler', {}, authorized: true);
   }
 
   /// Creates a new ticket
@@ -617,6 +617,51 @@ class ApiService {
       };
     } catch (e) {
       print('ApiService: Erreur inattendue pour payment-link: $e');
+      return {
+        'success': false,
+        'message': 'Une erreur inattendue est survenue.',
+      };
+    }
+  }
+
+  Future<Map<String, dynamic>> getTechnicianDashboardData() async {
+    try {
+      await ensureTokenLoaded();
+      final url = Uri.parse('$_baseUrl/read');
+      final headers = await _getHeaders(authorized: true);
+      final response = await http.get(url, headers: headers);
+
+      print(
+        'ApiService: GET read (Status: ${response.statusCode}): ${response.body}',
+      );
+
+      final responseData = json.decode(response.body) as Map<String, dynamic>;
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return {
+          'success': true,
+          'data': responseData,
+          'message':
+              responseData['message'] ?? 'Données récupérées avec succès',
+        };
+      } else {
+        String errorMessage =
+            responseData['message'] ??
+            'Erreur lors de la récupération des données.';
+        return {
+          'success': false,
+          'message': errorMessage,
+          'status_code': response.statusCode,
+        };
+      }
+    } on http.ClientException catch (e) {
+      print('ApiService: Erreur réseau ClientException pour read: $e');
+      return {
+        'success': false,
+        'message': 'Erreur réseau. Impossible de se connecter au serveur.',
+      };
+    } catch (e) {
+      print('ApiService: Erreur inattendue pour read: $e');
       return {
         'success': false,
         'message': 'Une erreur inattendue est survenue.',
