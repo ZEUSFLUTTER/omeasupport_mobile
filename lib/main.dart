@@ -7,6 +7,7 @@ import 'package:omeamobile/controllers/blocs/auth/auth_event.dart';
 import 'package:omeamobile/controllers/blocs/auth/auth_state.dart';
 import 'package:omeamobile/controllers/blocs/tickets/ticket_bloc.dart';
 import 'package:omeamobile/controllers/blocs/profile/profile_bloc.dart';
+import 'package:omeamobile/controllers/blocs/technician_dashboard/technician_dashboard_bloc.dart';
 import 'package:omeamobile/services/api_service.dart';
 import 'package:omeamobile/services/ticket_service.dart';
 import 'package:omeamobile/views/auth/login_screen.dart';
@@ -46,6 +47,9 @@ class MyApp extends StatelessWidget {
           ),
           BlocProvider(
             create: (context) => ProfileBloc(apiService: apiService),
+          ),
+          BlocProvider(
+            create: (context) => TechnicianDashboardBloc(apiService: apiService),
           ),
         ],
         child: MaterialApp(
