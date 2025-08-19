@@ -11,8 +11,12 @@ class User {
   final String telephone;
   final String pays;
   final String ville;
+<<<<<<< HEAD
   // 2. Change the type of 'role' from String to UserRole enum
   final UserRole role; // 'client' ou 'technician'
+=======
+  final String role;
+>>>>>>> divor
   final String? photoProfileUrl;
 
   User({
@@ -59,7 +63,11 @@ class User {
       telephone: json['telephone'] as String,
       pays: json['pays'] as String,
       ville: json['ville'] as String,
+<<<<<<< HEAD
       role: parsedRole, // Assign the parsed enum value here
+=======
+      role: json['role'] as String,
+>>>>>>> divor
       photoProfileUrl: json['photo_profile'] as String?,
     );
   }

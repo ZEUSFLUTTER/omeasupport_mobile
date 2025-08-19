@@ -21,11 +21,19 @@ class TicketService {
     }
   }
 
+<<<<<<< HEAD
+=======
+  /// Creates a new ticket.
+>>>>>>> divor
   Future<Ticket> createTicket({
     required String typeProbleme,
     required String description,
     required String adresse,
+<<<<<<< HEAD
     required DateTime dateRdv,
+=======
+    required String dateRdv,
+>>>>>>> divor
     List<String>? photosBase64,
   }) async {
     final DateFormat formatter = DateFormat("yyyy-MM-dd HH:mm:ss");
@@ -37,6 +45,7 @@ class TicketService {
       typeProbleme: typeProbleme,
       description: description,
       adresse: adresse,
+<<<<<<< HEAD
       dateRdv: formattedDateRdv,
       photosBase64: photosBase64,
     );
@@ -45,11 +54,23 @@ class TicketService {
     // Check for 'status' == true and 'ticket' != null from the Laravel response.
     if (result['status'] == true && result['ticket'] != null) {
       return Ticket.fromJson(result['ticket'] as Map<String, dynamic>);
+=======
+      dateRdv: dateRdv, // Passe la date et l'heure telles quelles
+      photosBase64: photosBase64,
+    );
+
+    if (result['success'] == true && result['data'] != null) {
+      // CORRECTION: ApiService mappe maintenant correctement les données
+      final ticketData = result['data'] as Map<String, dynamic>;
+      return Ticket.fromJson(ticketData);
+>>>>>>> divor
     } else {
       String errorMessage = result['message'] ?? 'Failed to create ticket';
       if (result['errors'] != null) {
         (result['errors'] as Map<String, dynamic>).forEach((key, value) {
-          errorMessage += '\n${value.join(', ')}';
+          if (value is List) {
+            errorMessage += '\n${value.join(', ')}';
+          }
         });
       }
       throw Exception(errorMessage);
@@ -85,4 +106,25 @@ class TicketService {
       throw Exception(result['message'] ?? 'Failed to take charge of ticket');
     }
   }
+<<<<<<< HEAD
+=======
+
+  /// Soumet un rapport pour un ticket donné.
+  Future<Map<String, dynamic>> submitRapport({
+    required String ticketId,
+    required Map<String, dynamic> rapportData,
+  }) async {
+    final result = await _apiService.put(
+      '/tickets/$ticketId/rapport',
+      data: rapportData,
+    );
+    if (result['status'] == true) {
+      return result;
+    } else {
+      throw Exception(
+        result['message'] ?? 'Erreur lors de l\'envoi du rapport',
+      );
+    }
+  }
+>>>>>>> divor
 }

@@ -1,15 +1,18 @@
-// lib/views/dashboard/technician_dashboard_screen.dart (This file will now serve as the Client Dashboard)
+// lib/views/dashboard/client_dashboard_screen.dart
 
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
-import 'package:provider/provider.dart';
-import 'package:omeamobile/controllers/auth_controller.dart';
-import 'package:omeamobile/controllers/ticket_controller.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'dart:convert';
+import 'package:omeamobile/controllers/blocs/auth/auth_bloc.dart';
+import 'package:omeamobile/controllers/blocs/auth/auth_state.dart';
+import 'package:omeamobile/controllers/blocs/tickets/ticket_bloc.dart';
+import 'package:omeamobile/controllers/blocs/tickets/ticket_event.dart';
+import 'package:omeamobile/controllers/blocs/tickets/ticket_state.dart';
 import 'package:omeamobile/models/ticket_model.dart';
 import 'package:omeamobile/models/user_model.dart';
-import 'package:omeamobile/views/tickets/ticket_screen.dart'; // Assuming this can show client tickets too
 import 'package:omeamobile/views/profile/profile_screen.dart';
 import 'package:omeamobile/views/tickets/new_ticket.dart';
+import 'package:omeamobile/views/tickets/details_ticket.dart';
 
 class ClientDashboardScreen extends StatefulWidget {
   const ClientDashboardScreen({super.key});
@@ -19,24 +22,25 @@ class ClientDashboardScreen extends StatefulWidget {
 }
 
 class _ClientDashboardScreenState extends State<ClientDashboardScreen> {
-  int _selectedIndex = 0; // For the BottomNavigationBar
-  late List<Widget> _widgetOptions; // List of screens
+  int _selectedIndex = 0;
+  late List<Widget> _widgetOptions;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<TicketController>(
-        context,
-        listen: false,
-      ).fetchDashboardData(); // This should fetch client-specific tickets
+      context.read<TicketBloc>().add(TicketFetchDashboardDataRequested());
     });
 
     _widgetOptions = <Widget>[
-      _DashboardContent(), // Main dashboard content for client
-      TicketsScreen(), // Tickets screen (might need to be client-specific)
-      const Center(child: Text('Historique')), // History screen
-      ProfileScreen(), // Profile screen
+      _DashboardContent(),
+      _DashboardContent(showSearchBar: false, showFilterTabs: false),
+      _HistoriqueTicketsList(),
+      ProfileScreen(
+        onSynchronize: () {
+          context.read<TicketBloc>().add(TicketFetchDashboardDataRequested());
+        },
+      ),
     ];
   }
 
@@ -78,13 +82,10 @@ class _ClientDashboardScreenState extends State<ClientDashboardScreen> {
           _selectedIndex == 0
               ? FloatingActionButton(
                 onPressed: () {
-                  // Correction ici : Utilisation standard de Navigator.push
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder:
-                          (context) =>
-                              const NewTicketScreen(), // Remplacez NewTicketScreen par le nom de votre écran de création de ticket
+                      builder: (context) => const NewTicketScreen(),
                     ),
                   );
                 },
@@ -98,6 +99,13 @@ class _ClientDashboardScreenState extends State<ClientDashboardScreen> {
 }
 
 class _DashboardContent extends StatefulWidget {
+  final bool showSearchBar;
+  final bool showFilterTabs;
+  const _DashboardContent({
+    this.showSearchBar = true,
+    this.showFilterTabs = true,
+    Key? key,
+  }) : super(key: key);
   @override
   State<_DashboardContent> createState() => _DashboardContentState();
 }
@@ -111,9 +119,7 @@ class _DashboardContentState extends State<_DashboardContent>
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
     _tabController.addListener(() {
-      // Potentially filter tickets based on the selected tab
-      // In a real app, you might trigger a new fetch or filter from the already fetched list
-      setState(() {}); // Rebuild to apply filter
+      setState(() {});
     });
   }
 
@@ -125,77 +131,107 @@ class _DashboardContentState extends State<_DashboardContent>
 
   @override
   Widget build(BuildContext context) {
-    final authController = Provider.of<AuthController>(context);
-    final ticketController = Provider.of<TicketController>(context);
-    final user = authController.currentUser;
+    return BlocBuilder<AuthBloc, AuthState>(
+      builder: (context, authState) {
+        if (authState is! AuthAuthenticated) {
+          return const Center(child: Text('Erreur: Utilisateur non connecté.'));
+        }
 
-    if (user == null) {
-      return const Center(child: Text('Erreur: Utilisateur non connecté.'));
-    }
+        final user = authState.user;
 
-    // Filter tickets based on the current tab
-    List<Ticket> filteredTickets = [];
-    switch (_tabController.index) {
-      case 0: // Tous
-        filteredTickets = ticketController.allTickets;
-        break;
-      case 1: // En cours (In Progress)
-        filteredTickets =
-            ticketController.allTickets
-                .where((ticket) => ticket.status == TicketStatus.inProgress)
-                .toList();
-        break;
-      case 2: // En attente (Pending or inProgress/completed)
-        filteredTickets =
-            ticketController.allTickets
-                .where(
-                  (ticket) =>
-                      ticket.status == TicketStatus.pending ||
-                      ticket.status == TicketStatus.completed ||
-                      ticket.status == TicketStatus.inProgress,
-                )
-                .toList();
-        break;
-      case 3: // Terminé (Completed)
-        filteredTickets =
-            ticketController.allTickets
-                .where((ticket) => ticket.status == TicketStatus.completed)
-                .toList();
-        break;
-    }
+        return BlocConsumer<TicketBloc, TicketState>(
+          listener: (context, state) {
+            if (state is TicketCreated) {
+              // Ticket créé avec succès, les données sont automatiquement rafraîchies
+            }
+          },
+          builder: (context, state) {
+            List<Ticket> allTickets = [];
+            if (state is TicketLoaded || state is TicketCreated) {
+              if (state is TicketLoaded) {
+                allTickets = state.allTickets;
+              } else if (state is TicketCreated) {
+                allTickets = state.allTickets;
+              }
+            }
 
-    // Calculate notification count (e.g., tickets 'En cours' + 'En attente')
-    final int notificationCount =
-        ticketController.allTickets
-            .where(
-              (ticket) =>
-                  ticket.status == TicketStatus.inProgress ||
-                  ticket.status == TicketStatus.pending ||
-                  ticket.status == TicketStatus.completed ||
-                  ticket.status == TicketStatus.inProgress,
-            )
-            .length;
+            // Filter tickets based on the current tab
+            List<Ticket> filteredTickets = [];
+            switch (_tabController.index) {
+              case 0: // Tous
+                filteredTickets = allTickets;
+                break;
+              case 1: // En cours (In Progress)
+                filteredTickets =
+                    allTickets
+                        .where(
+                          (ticket) => ticket.status == TicketStatus.inProgress,
+                        )
+                        .toList();
+                break;
+              case 2: // En attente (Pending or other pending states)
+                filteredTickets =
+                    allTickets
+                        .where(
+                          (ticket) =>
+                              ticket.status == TicketStatus.pending ||
+                              ticket.status == TicketStatus.completed ||
+                              ticket.status == TicketStatus.inProgress,
+                        )
+                        .toList();
+                break;
+              case 3: // Terminé (Completed)
+                filteredTickets =
+                    allTickets
+                        .where(
+                          (ticket) => ticket.status == TicketStatus.completed,
+                        )
+                        .toList();
+                break;
+            }
 
-    return RefreshIndicator(
-      onRefresh: () => ticketController.fetchDashboardData(),
-      child: Column(
-        children: [
-          _buildHeader(context, user, notificationCount),
-          _buildSearchBar(context),
-          _buildTicketFilterTabs(context),
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _buildTicketListView(context, filteredTickets),
-                _buildTicketListView(context, filteredTickets),
-                _buildTicketListView(context, filteredTickets),
-                _buildTicketListView(context, filteredTickets),
-              ],
-            ),
-          ),
-        ],
-      ),
+            // Calculate notification count
+            final int notificationCount =
+                allTickets
+                    .where(
+                      (ticket) =>
+                          ticket.status == TicketStatus.inProgress ||
+                          ticket.status == TicketStatus.pending ||
+                          ticket.status == TicketStatus.completed,
+                    )
+                    .length;
+
+            return RefreshIndicator(
+              onRefresh: () async {
+                context.read<TicketBloc>().add(
+                  TicketFetchDashboardDataRequested(),
+                );
+              },
+              child: Column(
+                children: [
+                  _buildHeader(context, user, notificationCount),
+                  if (widget.showSearchBar) _buildSearchBar(context),
+                  if (widget.showFilterTabs) _buildTicketFilterTabs(context),
+                  Expanded(
+                    child:
+                        widget.showFilterTabs
+                            ? TabBarView(
+                              controller: _tabController,
+                              children: [
+                                _buildTicketListView(context, filteredTickets),
+                                _buildTicketListView(context, filteredTickets),
+                                _buildTicketListView(context, filteredTickets),
+                                _buildTicketListView(context, filteredTickets),
+                              ],
+                            )
+                            : _buildTicketListView(context, allTickets),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -207,7 +243,6 @@ class _DashboardContentState extends State<_DashboardContent>
         children: [
           Row(
             children: [
-              // User avatar
               CircleAvatar(
                 radius: 24,
                 backgroundColor: Theme.of(
@@ -223,18 +258,17 @@ class _DashboardContentState extends State<_DashboardContent>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Bonjour ${user.nom.split(' ')[0]}', // Assuming nom contains first name
+                    'Bonjour ${user.nom.split(' ')[0]}',
                     style: TextStyle(fontSize: 16, color: Colors.grey[700]),
                   ),
                   const Text(
-                    'Client', // As seen in the image
+                    'Client',
                     style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
                 ],
               ),
             ],
           ),
-          // Notification and Settings Icons
           Row(
             children: [
               Stack(
@@ -317,28 +351,63 @@ class _DashboardContentState extends State<_DashboardContent>
 
   Widget _buildTicketFilterTabs(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-      child: Container(
-        height: 40, // Adjust height as needed
-        decoration: BoxDecoration(
-          color: Colors.grey[200],
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: TabBar(
-          controller: _tabController,
-          indicator: BoxDecoration(
-            borderRadius: BorderRadius.circular(10),
-            color: Theme.of(context).primaryColor,
+      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 12.0),
+      child: Material(
+        elevation: 2,
+        borderRadius: BorderRadius.circular(16),
+        color: Colors.white,
+        child: Container(
+          height: 52,
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.grey.shade200, width: 1),
           ),
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.grey[700],
-          labelStyle: const TextStyle(fontWeight: FontWeight.bold),
-          tabs: const [
-            Tab(text: 'Tous'),
-            Tab(text: 'En cours'),
-            Tab(text: 'En attente'),
-            Tab(text: 'Terminé'),
-          ],
+          child: TabBar(
+            controller: _tabController,
+            indicator: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              color: Theme.of(context).primaryColor,
+            ),
+            indicatorSize: TabBarIndicatorSize.tab,
+            labelColor: Colors.white,
+            unselectedLabelColor: Colors.grey[700],
+            labelStyle: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
+            unselectedLabelStyle: const TextStyle(
+              fontWeight: FontWeight.normal,
+              fontSize: 15,
+            ),
+            tabs: const [
+              Tab(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 8),
+                  child: Text('Tous'),
+                ),
+              ),
+              Tab(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 8),
+                  child: Text('En cours'),
+                ),
+              ),
+              Tab(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 8),
+                  child: Text('En attente'),
+                ),
+              ),
+              Tab(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 8),
+                  child: Text('Terminé'),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -363,148 +432,168 @@ class _DashboardContentState extends State<_DashboardContent>
     Color statusBgColor;
     Color statusTextColor;
     IconData icon;
-    String dateLabel;
-    String formattedDate;
 
-    // Determine status text, colors, and icon based on ticket status
     switch (ticket.status) {
       case TicketStatus.inProgress:
         statusText = 'En cours';
         statusBgColor = Colors.red.shade100;
         statusTextColor = Colors.red.shade700;
-        icon =
-            Icons
-                .print_outlined; // Example icon, adjust based on ticket type if available
-        // Assuming createdAt exists
+        icon = Icons.print_outlined;
         break;
-      case TicketStatus.completed: // 'Planifié' in the image
-      case TicketStatus.inProgress:
-        statusText = 'Planifié';
-        statusBgColor = Colors.blue.shade100;
-        statusTextColor = Colors.blue.shade700;
-        icon = Icons.wifi_outlined; // Example icon
+      case TicketStatus.assign:
+        statusText = 'Affecté';
+        statusBgColor = Colors.red.shade100;
+        statusTextColor = const Color.fromARGB(255, 100, 15, 75);
+        icon = Icons.print_outlined;
         break;
       case TicketStatus.completed:
         statusText = 'Terminé';
-        statusBgColor = Colors.green.shade100;
-        statusTextColor = Colors.green.shade700;
-        icon =
-            Icons
-                .star_border; // Example icon for completed, or specific service icon
-
+        statusBgColor = Colors.blue.shade100;
+        statusTextColor = Colors.blue.shade700;
+        icon = Icons.wifi_outlined;
         break;
-      case TicketStatus.pending: // Default for others not explicitly styled
+      case TicketStatus.pending:
       case TicketStatus.cancelled:
-      default:
-        statusText = 'En attente'; // Or 'Annulé' etc.
+        statusText = 'En attente';
         statusBgColor = Colors.grey.shade100;
         statusTextColor = Colors.grey.shade700;
         icon = Icons.help_outline;
-
         break;
     }
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => DetailsTicketScreen(ticket: ticket),
+          ),
+        ).then((result) {
+          if (result == true) {
+            // Rafraîchir la liste des tickets après suppression
+            context.read<TicketBloc>().add(TicketFetchDashboardDataRequested());
+          }
+        });
+      },
+      child: Card(
+        margin: const EdgeInsets.only(bottom: 12),
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      ticket.title,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '#${ticket.id}',
+                      style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.calendar_today_outlined,
+                          size: 16,
+                          color: Colors.grey[600],
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${ticket.scheduledTime.day} ${_getMonthName(ticket.scheduledTime.month)} ${ticket.scheduledTime.year}',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.person_outline,
+                          size: 16,
+                          color: Colors.grey[600],
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Technicien : ${ticket.technicianName ?? 'Non assigné'}',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (ticket.status == TicketStatus.completed)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4.0),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.star,
+                              size: 16,
+                              color: Colors.amber,
+                            ),
+                            const SizedBox(width: 4),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 16),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text(
-                    ticket.title,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: statusBgColor,
+                      borderRadius: BorderRadius.circular(5),
+                    ),
+                    child: Text(
+                      statusText,
+                      style: TextStyle(
+                        color: statusTextColor,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '#${ticket.id}',
-                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                  const SizedBox(height: 12),
+                  Container(
+                    child:
+                        ticket.photoBase64 != null &&
+                                ticket.photoBase64!.isNotEmpty
+                            ? Image.memory(
+                              base64Decode(ticket.photoBase64!),
+                              fit: BoxFit.cover,
+                            )
+                            : Icon(
+                              Icons.photo_camera,
+                              size: 24,
+                              color: Colors.grey[600],
+                            ),
                   ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.calendar_today_outlined,
-                        size: 16,
-                        color: Colors.grey[600],
-                      ),
-                      const SizedBox(width: 4),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.person_outline,
-                        size: 16,
-                        color: Colors.grey[600],
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Technicien : ${ticket.technicianName ?? 'Non assigné'}', // Assuming technicianName field exists
-                        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                      ),
-                    ],
-                  ),
-                  if (ticket.status ==
-                      TicketStatus.completed) // If you have a rating field
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4.0),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.star, size: 16, color: Colors.amber),
-                          const SizedBox(width: 4),
-                        ],
-                      ),
-                    ),
                 ],
               ),
-            ),
-            const SizedBox(width: 16),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: statusBgColor,
-                    borderRadius: BorderRadius.circular(5),
-                  ),
-                  child: Text(
-                    statusText,
-                    style: TextStyle(
-                      color: statusTextColor,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                // Icon for the ticket type as seen in the image
-                Container(
-                  width: 50,
-                  height: 50,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[200],
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(icon, size: 30, color: Colors.grey[600]),
-                ),
-              ],
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -528,6 +617,50 @@ class _DashboardContentState extends State<_DashboardContent>
       'Déc',
     ];
     return monthNames[month];
+  }
+}
+
+class _HistoriqueTicketsList extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<AuthBloc, AuthState>(
+      builder: (context, authState) {
+        if (authState is! AuthAuthenticated) {
+          return const Center(child: Text('Erreur: Utilisateur non connecté.'));
+        }
+        return BlocBuilder<TicketBloc, TicketState>(
+          builder: (context, state) {
+            List<Ticket> completedTickets = [];
+            if (state is TicketLoaded || state is TicketCreated) {
+              final allTickets =
+                  state is TicketLoaded
+                      ? state.allTickets
+                      : (state as TicketCreated).allTickets;
+              completedTickets =
+                  allTickets
+                      .where(
+                        (ticket) => ticket.status == TicketStatus.completed,
+                      )
+                      .toList();
+            }
+            if (completedTickets.isEmpty) {
+              return const Center(child: Text('Aucun ticket terminé.'));
+            }
+            return ListView.builder(
+              padding: const EdgeInsets.all(16.0),
+              itemCount: completedTickets.length,
+              itemBuilder: (context, index) {
+                final ticket = completedTickets[index];
+                return _DashboardContentState()._buildClientTicketListItem(
+                  context,
+                  ticket,
+                );
+              },
+            );
+          },
+        );
+      },
+    );
   }
 }
 

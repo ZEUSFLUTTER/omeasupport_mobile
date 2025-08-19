@@ -1,13 +1,18 @@
 // lib/views/dashboard/technician_dashboard_screen.dart
 
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:omeamobile/controllers/auth_controller.dart';
-import 'package:omeamobile/controllers/ticket_controller.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:omeamobile/controllers/blocs/auth/auth_bloc.dart';
+import 'package:omeamobile/controllers/blocs/auth/auth_state.dart';
+import 'package:omeamobile/controllers/blocs/technician_dashboard/technician_dashboard_bloc.dart';
+import 'package:omeamobile/controllers/blocs/technician_dashboard/technician_dashboard_event.dart';
+import 'package:omeamobile/controllers/blocs/technician_dashboard/technician_dashboard_state.dart';
+import 'package:omeamobile/models/technician_dashboard_model.dart';
 import 'package:omeamobile/models/ticket_model.dart';
 import 'package:omeamobile/models/user_model.dart';
-import 'package:omeamobile/views/tickets/ticket_screen.dart';
+import 'package:omeamobile/utils/snackbar_helper.dart';
 import 'package:omeamobile/views/profile/profile_screen.dart';
+import 'package:omeamobile/views/tickets/ticket_screen.dart';
 
 class TechnicianDashboardScreen extends StatefulWidget {
   const TechnicianDashboardScreen({super.key});
@@ -18,26 +23,15 @@ class TechnicianDashboardScreen extends StatefulWidget {
 }
 
 class _TechnicianDashboardScreenState extends State<TechnicianDashboardScreen> {
-  int _selectedIndex = 0; // Pour la BottomNavigationBar
-  late List<Widget> _widgetOptions; // Liste des écrans
-
+  int _selectedIndex = 0;
   @override
   void initState() {
     super.initState();
-    // Au démarrage du tableau de bord, charger les données
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<TicketController>(
-        context,
-        listen: false,
-      ).fetchDashboardData();
+      context.read<TechnicianDashboardBloc>().add(
+        TechnicianDashboardDataRequested(),
+      );
     });
-
-    _widgetOptions = <Widget>[
-      _DashboardContent(), // Contenu principal du tableau de bord
-      TicketsScreen(), // Écran des tickets
-      const Center(child: Text('Historique')), // Écran de l'historique
-      ProfileScreen(), // Écran de profil
-    ];
   }
 
   void _onItemTapped(int index) {
@@ -48,15 +42,21 @@ class _TechnicianDashboardScreenState extends State<TechnicianDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-
-
     return Scaffold(
       appBar: AppBar(
         toolbarHeight: 0,
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
-      body: _widgetOptions.elementAt(_selectedIndex),
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: [
+          _DashboardContent(),
+          _TicketsTab(),
+          _HistoriqueTab(),
+          const ProfileScreen(),
+        ],
+      ),
       bottomNavigationBar: BottomNavigationBar(
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Accueil'),
@@ -80,57 +80,537 @@ class _TechnicianDashboardScreenState extends State<TechnicianDashboardScreen> {
   }
 }
 
-// Widget pour le contenu du tableau de bord (partie supérieure de l'écran)
+class _TicketsTab extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<TechnicianDashboardBloc, TechnicianDashboardState>(
+      builder: (context, state) {
+        if (state is TechnicianDashboardLoading) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        TechnicianDashboardData? dashboardData;
+        bool isActionLoading = false;
+        if (state is TechnicianDashboardLoaded) {
+          dashboardData = state.dashboardData;
+        } else if (state is TechnicianDashboardActionLoading) {
+          dashboardData = state.dashboardData;
+          isActionLoading = true;
+        } else if (state is TechnicianDashboardError) {
+          return Center(child: Text('Erreur: ${state.message}'));
+        }
+        if (dashboardData == null) {
+          return Center(child: Text('Aucune donnée disponible'));
+        }
+        return RefreshIndicator(
+          onRefresh: () async {
+            context.read<TechnicianDashboardBloc>().add(
+              TechnicianDashboardDataRequested(),
+            );
+          },
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: _buildAllTicketsList(
+                context,
+                dashboardData.allTickets,
+                isActionLoading,
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _HistoriqueTab extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<TechnicianDashboardBloc, TechnicianDashboardState>(
+      builder: (context, state) {
+        if (state is TechnicianDashboardLoading) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        TechnicianDashboardData? dashboardData;
+        bool isActionLoading = false;
+        if (state is TechnicianDashboardLoaded) {
+          dashboardData = state.dashboardData;
+        } else if (state is TechnicianDashboardActionLoading) {
+          dashboardData = state.dashboardData;
+          isActionLoading = true;
+        } else if (state is TechnicianDashboardError) {
+          return Center(child: Text('Erreur: ${state.message}'));
+        }
+        if (dashboardData == null) {
+          return Center(child: Text('Aucune donnée disponible'));
+        }
+        final completedTickets =
+            dashboardData.allTickets
+                .where((ticket) => ticket.status == TicketStatus.completed)
+                .toList();
+        return RefreshIndicator(
+          onRefresh: () async {
+            context.read<TechnicianDashboardBloc>().add(
+              TechnicianDashboardDataRequested(),
+            );
+          },
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: _buildAllTicketsList(
+                context,
+                completedTickets,
+                isActionLoading,
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+// --- Début : méthodes globales pour tickets ---
+Widget _buildAllTicketsList(
+  BuildContext context,
+  List<Ticket> allTickets,
+  bool isActionLoading,
+) {
+  if (allTickets.isEmpty) {
+    return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      child: Container(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          children: [
+            Icon(Icons.assignment_outlined, size: 48, color: Colors.grey[400]),
+            const SizedBox(height: 12),
+            Text(
+              'Aucun ticket disponible',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey[700],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Aucun ticket n\'est actuellement assigné.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey[600]),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  return Column(
+    children:
+        allTickets.map((ticket) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 8.0),
+            child: _buildTicketListItem(context, ticket, isActionLoading),
+          );
+        }).toList(),
+  );
+}
+
+Widget _buildTicketListItem(
+  BuildContext context,
+  Ticket ticket,
+  bool isActionLoading,
+) {
+  Color priorityColor;
+  String statusText;
+  Color statusBgColor;
+  Color statusTextColor;
+  String buttonText = '';
+  Function()? onPressedButton;
+
+  switch (ticket.priority) {
+    case TicketPriority.low:
+      priorityColor = Colors.green;
+      break;
+    case TicketPriority.medium:
+      priorityColor = Colors.orange;
+      break;
+    case TicketPriority.high:
+      priorityColor = Colors.red;
+      break;
+    case TicketPriority.critical:
+      priorityColor = Colors.red.shade900;
+      break;
+  }
+
+  switch (ticket.status) {
+    case TicketStatus.pending:
+      statusText = 'PENDING';
+      statusBgColor = Colors.blue.shade100;
+      statusTextColor = Colors.blue.shade700;
+      buttonText = 'Postuler';
+      onPressedButton = () {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Votre demande a été envoyée.'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      };
+      break;
+    case TicketStatus.assign:
+      statusText = 'AFFECTE';
+      statusBgColor = Colors.orange.shade100;
+      statusTextColor = Colors.orange.shade700;
+      buttonText = 'Démarrer';
+      onPressedButton = () {
+        Navigator.of(context).pushNamed('/intervention', arguments: ticket);
+      };
+      break;
+    case TicketStatus.inProgress:
+      statusText = 'IN_PROGRESS';
+      statusBgColor = Colors.orange.shade100;
+      statusTextColor = Colors.orange.shade700;
+      buttonText = 'Démarrer';
+      onPressedButton = () {
+        Navigator.of(context).pushNamed('/intervention', arguments: ticket);
+      };
+      break;
+    case TicketStatus.completed:
+      statusText = 'TERMINÉ';
+      statusBgColor = Colors.green.shade100;
+      statusTextColor = Colors.green.shade700;
+      buttonText = 'Détails';
+      onPressedButton = () {
+        Navigator.of(context).pushNamed('/details_ticket', arguments: ticket);
+      };
+      break;
+    case TicketStatus.cancelled:
+      statusText = 'CANCELLED';
+      statusBgColor = Colors.grey.shade300;
+      statusTextColor = Colors.grey.shade700;
+      buttonText = 'Détails';
+      onPressedButton = () {};
+      break;
+  }
+
+  return Card(
+    elevation: 2,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+    child: Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: priorityColor.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(5),
+                    ),
+                    child: Text(
+                      ticket.priority.toString().split('.').last.toUpperCase(),
+                      style: TextStyle(
+                        color: priorityColor,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '#${ticket.id}',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: statusBgColor,
+                  borderRadius: BorderRadius.circular(5),
+                ),
+                child: Text(
+                  statusText,
+                  style: TextStyle(
+                    color: statusTextColor,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            ticket.title,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Icon(Icons.person_outline, size: 16, color: Colors.grey[600]),
+              const SizedBox(width: 4),
+              Text(
+                ticket.clientName,
+                style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Icon(
+                Icons.location_on_outlined,
+                size: 16,
+                color: Colors.grey[600],
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  ticket.location,
+                  style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Icon(Icons.access_time, size: 16, color: Colors.grey[600]),
+              const SizedBox(width: 4),
+              Text(
+                '${ticket.scheduledTime.hour}:${ticket.scheduledTime.minute.toString().padLeft(2, '0')}',
+                style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+              ),
+              const Spacer(),
+              if (buttonText.isNotEmpty)
+                Flexible(
+                  // Ajouter Flexible ici
+                  child: SizedBox(
+                    height: 30,
+                    child: ElevatedButton(
+                      onPressed: isActionLoading ? null : onPressedButton,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: statusTextColor,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                        ), // Réduire padding
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        textStyle: const TextStyle(
+                          fontSize: 11,
+                        ), // Réduire taille police
+                      ),
+                      child:
+                          isActionLoading
+                              ? const SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    Colors.white,
+                                  ),
+                                ),
+                              )
+                              : Text(
+                                buttonText,
+                                overflow:
+                                    TextOverflow.ellipsis, // Ajouter overflow
+                                maxLines: 1,
+                              ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    ),
+  );
+}
+// --- Fin : méthodes globales pour tickets ---
+
 class _DashboardContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    final authController = Provider.of<AuthController>(context);
-    final ticketController = Provider.of<TicketController>(context);
-    final user = authController.currentUser;
+    return BlocBuilder<AuthBloc, AuthState>(
+      builder: (context, authState) {
+        if (authState is! AuthAuthenticated) {
+          return const Center(child: Text('Erreur: Utilisateur non connecté.'));
+        }
 
-    if (user == null) {
-      return const Center(child: Text('Erreur: Utilisateur non connecté.'));
-    }
+        final user = authState.user;
 
-    // Calcul du nombre de notifications (par exemple, tickets en attente)
-    final int notificationCount = ticketController.pendingTickets.length;
+        return BlocConsumer<TechnicianDashboardBloc, TechnicianDashboardState>(
+          listener: (context, state) {
+            if (state is TechnicianDashboardError) {
+              SnackBarHelper.showError(
+                context: context,
+                message: state.message,
+                actionLabel: 'Réessayer',
+                onActionPressed: () {
+                  context.read<TechnicianDashboardBloc>().add(
+                    TechnicianDashboardDataRequested(),
+                  );
+                },
+              );
+            }
+            if (state is TechnicianDashboardInterventionStarted &&
+                state.ticket != null) {
+              Navigator.of(
+                context,
+              ).pushNamed('/intervention', arguments: state.ticket);
+            }
+          },
+          builder: (context, state) {
+            if (state is TechnicianDashboardLoading) {
+              return const Center(child: CircularProgressIndicator());
+            }
 
+            TechnicianDashboardData? dashboardData;
+            bool isActionLoading = false;
+
+            if (state is TechnicianDashboardLoaded) {
+              dashboardData = state.dashboardData;
+            } else if (state is TechnicianDashboardActionLoading) {
+              dashboardData = state.dashboardData;
+              isActionLoading = true;
+            } else if (state is TechnicianDashboardError) {
+              return _buildErrorView(context, state.message);
+            }
+
+            if (dashboardData == null) {
+              return _buildErrorView(context, 'Aucune donnée disponible');
+            }
+
+            final notificationCount =
+                dashboardData.dashboardSummary.pendingTickets;
+
+            return RefreshIndicator(
+              onRefresh: () async {
+                context.read<TechnicianDashboardBloc>().add(
+                  TechnicianDashboardDataRequested(),
+                );
+              },
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildHeader(context, user, notificationCount),
+                    Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Aperçu du jour',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          _buildDailyOverviewGrid(
+                            context,
+                            dashboardData.dashboardSummary,
+                          ),
+                          const SizedBox(height: 24),
+                          _buildActiveTicketCard(
+                            context,
+                            dashboardData.activeTicket,
+                            isActionLoading,
+                          ),
+                          const SizedBox(height: 24),
+                          const Text(
+                            'Tous les tickets',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          _buildAllTicketsList(
+                            context,
+                            dashboardData.allTickets,
+                            isActionLoading,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildErrorView(BuildContext context, String message) {
     return RefreshIndicator(
-      onRefresh: () => ticketController.fetchDashboardData(),
+      onRefresh: () async {
+        context.read<TechnicianDashboardBloc>().add(
+          TechnicianDashboardDataRequested(),
+        );
+      },
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildHeader(
-              context,
-              user,
-              notificationCount,
-            ), // Passer le nombre de notifications
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Aperçu du jour',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+        child: SizedBox(
+          height: MediaQuery.of(context).size.height - 200,
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.error_outline, size: 64, color: Colors.grey[400]),
+                const SizedBox(height: 16),
+                Text(
+                  'Erreur de chargement',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey[600],
                   ),
-                  const SizedBox(height: 16),
-                  _buildDailyOverviewGrid(context, ticketController),
-                  const SizedBox(height: 24),
-                  _buildActiveTicketCard(context, ticketController),
-                  const SizedBox(height: 24),
-                  const Text(
-                    'Tickets récents',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 16),
-                  _buildRecentTicketsList(context, ticketController),
-                ],
-              ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.grey[500]),
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    context.read<TechnicianDashboardBloc>().add(
+                      TechnicianDashboardDataRequested(),
+                    );
+                  },
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Réessayer'),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -177,7 +657,6 @@ class _DashboardContent extends StatelessWidget {
                   ),
                 ],
               ),
-              // Bouton avec icône et notifications
               Stack(
                 children: [
                   Container(
@@ -188,20 +667,18 @@ class _DashboardContent extends StatelessWidget {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(
-                      Icons
-                          .notifications_none_outlined, // Icône de notification
+                      Icons.notifications_none_outlined,
                       color: Theme.of(context).primaryColor,
                     ),
                   ),
-                  if (notificationCount >
-                      0) // Afficher la bulle seulement s'il y a des notifications
+                  if (notificationCount > 0)
                     Positioned(
                       right: 0,
                       top: 0,
                       child: Container(
                         padding: const EdgeInsets.all(4),
                         decoration: BoxDecoration(
-                          color: Colors.red, // Couleur de notification
+                          color: Colors.red,
                           shape: BoxShape.circle,
                           border: Border.all(color: Colors.white, width: 2),
                         ),
@@ -211,8 +688,7 @@ class _DashboardContent extends StatelessWidget {
                         ),
                         alignment: Alignment.center,
                         child: Text(
-                          notificationCount
-                              .toString(), // Nombre de notifications
+                          notificationCount.toString(),
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 10,
@@ -225,16 +701,14 @@ class _DashboardContent extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          // _buildTopNavigationBar(context), // <--- C'EST CETTE LIGNE QUI EST SUPPRIMÉE
         ],
       ),
     );
   }
 
-
   Widget _buildDailyOverviewGrid(
     BuildContext context,
-    TicketController controller,
+    DashboardSummary summary,
   ) {
     return Row(
       children: [
@@ -244,7 +718,7 @@ class _DashboardContent extends StatelessWidget {
               _buildOverviewCard(
                 context,
                 'Tickets aujourd\'hui',
-                controller.todaysTickets.length.toString(),
+                summary.ticketsToday.toString(),
                 Icons.assignment,
                 Colors.blue.shade100,
                 Colors.blue.shade700,
@@ -253,7 +727,7 @@ class _DashboardContent extends StatelessWidget {
               _buildOverviewCard(
                 context,
                 'Terminés',
-                controller.completedTickets.length.toString(),
+                summary.completedTickets.toString(),
                 Icons.check_circle_outline,
                 Colors.green.shade100,
                 Colors.green.shade700,
@@ -268,7 +742,7 @@ class _DashboardContent extends StatelessWidget {
               _buildOverviewCard(
                 context,
                 'En attente',
-                controller.pendingTickets.length.toString(),
+                summary.pendingTickets.toString(),
                 Icons.access_time_outlined,
                 Colors.orange.shade100,
                 Colors.orange.shade700,
@@ -277,7 +751,7 @@ class _DashboardContent extends StatelessWidget {
               _buildOverviewCard(
                 context,
                 'Distance',
-                '${controller.allTickets.fold(0.0, (sum, item) => sum + (item.distance ?? 0)).toStringAsFixed(1)} km',
+                '${summary.distanceTraveled.toStringAsFixed(1)} km',
                 Icons.directions_car_outlined,
                 Colors.red.shade100,
                 Colors.red.shade700,
@@ -332,12 +806,41 @@ class _DashboardContent extends StatelessWidget {
 
   Widget _buildActiveTicketCard(
     BuildContext context,
-    TicketController controller,
+    Ticket? activeTicket,
+    bool isActionLoading,
   ) {
-    final activeTicket = controller.activeTicket;
-
-    if (activeTicket == null || activeTicket.id.isEmpty) {
-      return const SizedBox.shrink();
+    if (activeTicket == null) {
+      return Card(
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            children: [
+              Icon(
+                Icons.check_circle_outline,
+                size: 48,
+                color: Colors.green[400],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Aucun ticket actif',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey[700],
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Tous vos tickets sont terminés ou aucune intervention en cours.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+              ),
+            ],
+          ),
+        ),
+      );
     }
 
     return Card(
@@ -446,33 +949,40 @@ class _DashboardContent extends StatelessWidget {
               width: double.infinity,
               child: ElevatedButton.icon(
                 onPressed:
-                    controller.isLoading
+                    isActionLoading
                         ? null
-                        : () async {
-                          final success = await controller.startIntervention(
-                            activeTicket.id,
-                          );
-                          if (success) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Intervention démarrée !'),
+                        : () {
+                          if (activeTicket.status == TicketStatus.inProgress) {
+                            // Terminer l'intervention
+                            context.read<TechnicianDashboardBloc>().add(
+                              TechnicianEndInterventionRequested(
+                                ticketId: activeTicket.id,
                               ),
                             );
                           } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  controller.errorMessage ??
-                                      'Erreur lors du démarrage.',
-                                ),
+                            // Commencer l'intervention
+                            context.read<TechnicianDashboardBloc>().add(
+                              TechnicianStartInterventionRequested(
+                                ticketId: activeTicket.id,
                               ),
                             );
                           }
                         },
-                icon: const Icon(Icons.play_arrow),
-                label: const Text('COMMENCER INTERVENTION'),
+                icon: Icon(
+                  activeTicket.status == TicketStatus.inProgress
+                      ? Icons.stop
+                      : Icons.play_arrow,
+                ),
+                label: Text(
+                  activeTicket.status == TicketStatus.inProgress
+                      ? 'TERMINER INTERVENTION'
+                      : 'COMMENCER INTERVENTION',
+                ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
+                  backgroundColor:
+                      activeTicket.status == TicketStatus.inProgress
+                          ? Colors.red
+                          : Colors.green,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(
@@ -487,25 +997,51 @@ class _DashboardContent extends StatelessWidget {
     );
   }
 
-  Widget _buildRecentTicketsList(
+  Widget _buildAllTicketsList(
     BuildContext context,
-    TicketController controller,
+    List<Ticket> allTickets,
+    bool isActionLoading,
   ) {
-    if (controller.allTickets.isEmpty) {
-      return const Center(child: Text('Aucun ticket récent.'));
+    if (allTickets.isEmpty) {
+      return Card(
+        elevation: 1,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            children: [
+              Icon(
+                Icons.assignment_outlined,
+                size: 48,
+                color: Colors.grey[400],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Aucun ticket disponible',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey[700],
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Aucun ticket n\'est actuellement assigné.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey[600]),
+              ),
+            ],
+          ),
+        ),
+      );
     }
-    final recentTickets =
-        controller.allTickets
-            .where((ticket) => ticket.status != TicketStatus.completed)
-            .take(5)
-            .toList();
 
     return Column(
       children:
-          recentTickets.map((ticket) {
+          allTickets.map((ticket) {
             return Padding(
               padding: const EdgeInsets.only(bottom: 8.0),
-              child: _buildTicketListItem(context, ticket, controller),
+              child: _buildTicketListItem(context, ticket, isActionLoading),
             );
           }).toList(),
     );
@@ -514,7 +1050,7 @@ class _DashboardContent extends StatelessWidget {
   Widget _buildTicketListItem(
     BuildContext context,
     Ticket ticket,
-    TicketController controller,
+    bool isActionLoading,
   ) {
     Color priorityColor;
     String statusText;
@@ -543,49 +1079,46 @@ class _DashboardContent extends StatelessWidget {
         statusText = 'PENDING';
         statusBgColor = Colors.blue.shade100;
         statusTextColor = Colors.blue.shade700;
-        buttonText = 'Prendre en charge';
-        onPressedButton = () async {
-          final success = await controller.takeChargeOfTicket(ticket.id);
-          if (success) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Ticket pris en charge !')),
-            );
-          } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(controller.errorMessage ?? 'Erreur.')),
-            );
-          }
+        buttonText = 'Postuler';
+        onPressedButton = () {
+          context.read<TechnicianDashboardBloc>().add(
+            TechnicianTakeChargeRequested(ticketId: ticket.id),
+          );
+        };
+        break;
+      case TicketStatus.assign:
+        statusText = 'AFFECTÉ';
+        statusBgColor = Colors.orange.shade100;
+        statusTextColor = Colors.orange.shade700;
+        buttonText = 'Commencer';
+        onPressedButton = () {
+          context.read<TechnicianDashboardBloc>().add(
+            TechnicianStartInterventionRequested(ticketId: ticket.id),
+          );
         };
         break;
       case TicketStatus.inProgress:
         statusText = 'IN_PROGRESS';
         statusBgColor = Colors.orange.shade100;
         statusTextColor = Colors.orange.shade700;
-        buttonText = 'Terminer';
-        onPressedButton = () async {
-          final success = await controller.completeIntervention(ticket.id);
-          if (success) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Intervention terminée !')),
-            );
-          } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(controller.errorMessage ?? 'Erreur.')),
-            );
-          }
+        buttonText = 'Clôturer';
+        onPressedButton = () {
+          context.read<TechnicianDashboardBloc>().add(
+            TechnicianEndInterventionRequested(ticketId: ticket.id),
+          );
         };
         break;
       case TicketStatus.completed:
-        statusText = 'COMPLETED';
+        statusText = 'COMPLÉTÉ';
         statusBgColor = Colors.green.shade100;
         statusTextColor = Colors.green.shade700;
-        buttonText = 'Détails';
+        buttonText = 'Rapport';
         onPressedButton = () {
-          // Naviguer vers les détails du ticket
+          Navigator.of(context).pushNamed('/rapport', arguments: ticket);
         };
         break;
       case TicketStatus.cancelled:
-        statusText = 'CANCELLED';
+        statusText = 'ANNULÉ';
         statusBgColor = Colors.grey.shade300;
         statusTextColor = Colors.grey.shade700;
         buttonText = 'Détails';
@@ -703,20 +1236,44 @@ class _DashboardContent extends StatelessWidget {
                 ),
                 const Spacer(),
                 if (buttonText.isNotEmpty)
-                  SizedBox(
-                    height: 30,
-                    child: ElevatedButton(
-                      onPressed: controller.isLoading ? null : onPressedButton,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: statusTextColor,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
+                  Flexible(
+                    // Ajouter Flexible ici
+                    child: SizedBox(
+                      height: 30,
+                      child: ElevatedButton(
+                        onPressed: isActionLoading ? null : onPressedButton,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: statusTextColor,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                          ), // Réduire padding
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          textStyle: const TextStyle(
+                            fontSize: 11,
+                          ), // Réduire taille police
                         ),
-                        textStyle: const TextStyle(fontSize: 12),
+                        child:
+                            isActionLoading
+                                ? const SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      Colors.white,
+                                    ),
+                                  ),
+                                )
+                                : Text(
+                                  buttonText,
+                                  overflow:
+                                      TextOverflow.ellipsis, // Ajouter overflow
+                                  maxLines: 1,
+                                ),
                       ),
-                      child: Text(buttonText),
                     ),
                   ),
               ],
@@ -725,13 +1282,5 @@ class _DashboardContent extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-// Extension pour capitaliser les strings, utile pour l'affichage des rôles
-extension StringExtension on String {
-  String capitalize() {
-    if (isEmpty) return this;
-    return "${this[0].toUpperCase()}${substring(1)}";
   }
 }

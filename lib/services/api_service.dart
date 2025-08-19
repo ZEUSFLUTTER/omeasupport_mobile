@@ -8,38 +8,26 @@ import 'package:omeamobile/models/ticket_model.dart';
 
 class ApiService {
   static const String _baseUrl = 'http://127.0.0.1:8000/api';
+  // static const String _baseUrl = 'http://192.168.1.74:8000/api';
+  // static const String _baseUrl = 'http://192.168.1.65:8000/api';
+  // static const String _baseUrl = 'http://10.0.2.2:8000/api';
+
   static const String _authTokenKey = 'authToken';
 
   String? _authToken;
 
-  // 1. L'instance statique unique du Singleton
+  // Singleton pattern
   static final ApiService _instance = ApiService._internal();
-
-  // 2. Le constructeur factory qui retourne l'instance unique
-  factory ApiService() {
-    return _instance;
-  }
-
-  // 3. Le constructeur privé nommé pour l'initialisation interne
-  // Il est important qu'il soit privé pour empêcher la création d'autres instances.
+  factory ApiService() => _instance;
   ApiService._internal() {
-    // Initialisation asynchrone du token au démarrage de l'application
-    // Il est crucial que cela soit géré correctement dans le flux de l'app.
-    // Idéalement, _loadAuthToken() devrait être appelé une fois au tout début
-    // de l'application (par exemple, dans main() ou un Splash Screen)
-    // et être attendu avant de permettre les requêtes authentifiées.
     _loadAuthToken();
   }
 
-  // Cette méthode charge le token depuis SharedPreferences
   Future<void> _loadAuthToken() async {
     final prefs = await SharedPreferences.getInstance();
     _authToken = prefs.getString(_authTokenKey);
-    print('ApiService: Token chargé au démarrage: $_authToken');
   }
 
-  // Méthode publique pour s'assurer que le token est chargé avant toute opération.
-  // Utile si vous avez besoin de garantir que le token est disponible avant une requête.
   Future<void> ensureTokenLoaded() async {
     if (_authToken == null) {
       await _loadAuthToken();
@@ -49,14 +37,14 @@ class ApiService {
   Future<void> _saveAuthToken(String token) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_authTokenKey, token);
-    _authToken = token; // Mettre à jour l'authToken de cette instance Singleton
+    _authToken = token;
     print('ApiService: Token sauvegardé: $_authToken');
   }
 
   Future<void> clearAuthToken() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_authTokenKey);
-    _authToken = null; // Effacer l'authToken de cette instance Singleton
+    _authToken = null;
     print('ApiService: Token supprimé.');
   }
 
@@ -79,7 +67,6 @@ class ApiService {
     bool authorized = false,
   }) async {
     try {
-      // S'assurer que le token est chargé si la requête est autorisée
       if (authorized) {
         await ensureTokenLoaded();
       }
@@ -92,16 +79,13 @@ class ApiService {
         body: json.encode(body),
       );
 
-      print(
-        'ApiService: POST $endpoint (Status: ${response.statusCode}): ${response.body}',
-      );
-
       final responseData = json.decode(response.body) as Map<String, dynamic>;
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
+        // CORRECTION: Mapper correctement selon la structure de réponse Laravel
         return {
           'success': true,
-          'data': responseData['data'],
+          'data': _extractDataFromResponse(responseData, endpoint),
           'message': responseData['message'] ?? 'Succès',
         };
       } else {
@@ -134,12 +118,25 @@ class ApiService {
     }
   }
 
+  /// Extrait les données de la réponse selon l'endpoint
+  dynamic _extractDataFromResponse(
+    Map<String, dynamic> responseData,
+    String endpoint,
+  ) {
+    // Pour les tickets, Laravel retourne directement le ticket
+    if (endpoint == 'tickets') {
+      return responseData['ticket'] ?? responseData['data'];
+    }
+
+    // Pour les autres endpoints, utiliser 'data' par défaut
+    return responseData['data'];
+  }
+
   Future<Map<String, dynamic>> _get(
     String endpoint, {
     bool authorized = false,
   }) async {
     try {
-      // S'assurer que le token est chargé si la requête est autorisée
       if (authorized) {
         await ensureTokenLoaded();
       }
@@ -183,6 +180,7 @@ class ApiService {
     }
   }
 
+  // Login method remains the same
   Future<Map<String, dynamic>> login({
     required String email,
     required String password,
@@ -201,9 +199,7 @@ class ApiService {
 
     if (loginResponseData != null && loginResponseData['token'] != null) {
       final String token = loginResponseData['token'];
-      await _saveAuthToken(
-        token,
-      ); // Sauvegarde et met à jour l'instance Singleton
+      await _saveAuthToken(token);
 
       final userProfileResponse = await getUserProfile();
 
@@ -248,7 +244,7 @@ class ApiService {
     }
   }
 
-  // La méthode register aura une logique similaire
+  // Register method remains the same
   Future<Map<String, dynamic>> register(
     String nom,
     String prenom,
@@ -343,7 +339,6 @@ class ApiService {
     return await _get('auth/profile', authorized: true);
   }
 
-  // ... (Autres méthodes pour les tickets, inchangées)
   Future<Map<String, dynamic>> getTickets({
     String? status,
     String? type,
@@ -410,30 +405,324 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> completeIntervention(String ticketId) async {
-    return await _post('tickets/$ticketId/complete', {}, authorized: true);
+    return await _post('tickets/$ticketId/end', {}, authorized: true);
   }
 
   Future<Map<String, dynamic>> takeChargeOfTicket(String ticketId) async {
-    return await _post('tickets/$ticketId/take_charge', {}, authorized: true);
+    return await _post('tickets/$ticketId/postuler', {}, authorized: true);
   }
 
-  // This is the createTicket method that should be used
+  /// Creates a new ticket
   Future<Map<String, dynamic>> createTicket({
     required String typeProbleme,
     required String description,
     required String adresse,
-    required String
-    dateRdv, // YYYY-MM-DD format expected by Laravel date validation
-    List<String>? photosBase64, // List of base64 encoded image strings
+    required String dateRdv,
+    List<String>? photosBase64,
   }) async {
     final body = {
       'type_probleme': typeProbleme,
       'description': description,
       'adresse': adresse,
       'date_rdv': dateRdv,
-      'photos': photosBase64 ?? [], // Send empty array if no photos
+      'photos': photosBase64 ?? [],
     };
-    // Use the _post helper method directly. It handles URL, headers, and response parsing.
     return await _post('tickets', body, authorized: true);
+  }
+
+  /// Supprime un ticket par son ID
+  Future<Map<String, dynamic>> deleteTicket(String ticketId) async {
+    try {
+      await ensureTokenLoaded();
+      final url = Uri.parse('$_baseUrl/tickets/$ticketId');
+      final headers = await _getHeaders(authorized: true);
+      final response = await http.delete(url, headers: headers);
+      print(
+        'ApiService: DELETE tickets/$ticketId (Status: \\${response.statusCode}): \\${response.body}',
+      );
+      final responseData = json.decode(response.body) as Map<String, dynamic>;
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return {
+          'success': true,
+          'message': responseData['message'] ?? 'Ticket supprimé avec succès',
+        };
+      } else {
+        String errorMessage =
+            responseData['message'] ??
+            'Erreur lors de la suppression du ticket.';
+        return {
+          'success': false,
+          'message': errorMessage,
+          'status_code': response.statusCode,
+        };
+      }
+    } on http.ClientException catch (e) {
+      print(
+        'ApiService: Erreur réseau ClientException pour DELETE tickets/$ticketId: $e',
+      );
+      return {
+        'success': false,
+        'message': 'Erreur réseau. Impossible de se connecter au serveur.',
+      };
+    } catch (e) {
+      print('ApiService: Erreur inattendue pour DELETE tickets/$ticketId: $e');
+      return {
+        'success': false,
+        'message': 'Une erreur inattendue est survenue.',
+      };
+    }
+  }
+
+  /// Met à jour la photo de profil de l'utilisateur connecté
+  Future<Map<String, dynamic>> updateProfileImage(String imageBase64) async {
+    try {
+      await ensureTokenLoaded();
+
+      final url = Uri.parse('$_baseUrl/auth/update-profile-image');
+      final headers = await _getHeaders(authorized: true);
+
+      // Créer un body multipart pour l'upload de fichier
+      final body = json.encode({'photo_profile': imageBase64});
+
+      final response = await http.put(url, headers: headers, body: body);
+
+      print(
+        'ApiService: PUT update-profile-image (Status: ${response.statusCode}): ${response.body}',
+      );
+
+      final responseData = json.decode(response.body) as Map<String, dynamic>;
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return {
+          'success': true,
+          'data': responseData['data'],
+          'message':
+              responseData['message'] ??
+              'Photo de profil mise à jour avec succès',
+        };
+      } else {
+        String errorMessage =
+            responseData['message'] ??
+            'Erreur lors de la mise à jour de la photo';
+        if (responseData['errors'] != null && responseData['errors'] is Map) {
+          responseData['errors'].forEach((key, value) {
+            if (value is List) {
+              errorMessage += '\n- ${value.join(", ")}';
+            }
+          });
+        }
+        return {
+          'success': false,
+          'message': errorMessage,
+          'status_code': response.statusCode,
+        };
+      }
+    } on http.ClientException catch (e) {
+      print(
+        'ApiService: Erreur réseau ClientException pour update-profile-image: $e',
+      );
+      return {
+        'success': false,
+        'message': 'Erreur réseau. Impossible de se connecter au serveur.',
+      };
+    } catch (e) {
+      print('ApiService: Erreur inattendue pour update-profile-image: $e');
+      return {
+        'success': false,
+        'message': 'Une erreur inattendue est survenue.',
+      };
+    }
+  }
+
+  /// Supprime la photo de profil de l'utilisateur connecté
+  Future<Map<String, dynamic>> removeProfileImage() async {
+    try {
+      await ensureTokenLoaded();
+
+      final url = Uri.parse('$_baseUrl/auth/remove-profile-image');
+      final headers = await _getHeaders(authorized: true);
+
+      final response = await http.delete(url, headers: headers);
+
+      print(
+        'ApiService: DELETE remove-profile-image (Status: ${response.statusCode}): ${response.body}',
+      );
+
+      final responseData = json.decode(response.body) as Map<String, dynamic>;
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return {
+          'success': true,
+          'data': responseData['data'],
+          'message':
+              responseData['message'] ??
+              'Photo de profil supprimée avec succès',
+        };
+      } else {
+        String errorMessage =
+            responseData['message'] ??
+            'Erreur lors de la suppression de la photo';
+        return {
+          'success': false,
+          'message': errorMessage,
+          'status_code': response.statusCode,
+        };
+      }
+    } on http.ClientException catch (e) {
+      print(
+        'ApiService: Erreur réseau ClientException pour remove-profile-image: $e',
+      );
+      return {
+        'success': false,
+        'message': 'Erreur réseau. Impossible de se connecter au serveur.',
+      };
+    } catch (e) {
+      print('ApiService: Erreur inattendue pour remove-profile-image: $e');
+      return {
+        'success': false,
+        'message': 'Une erreur inattendue est survenue.',
+      };
+    }
+  }
+
+  /// Generic PUT method for updating resources
+  Future<Map<String, dynamic>> put(
+    String endpoint, {
+    required Map<String, dynamic> data,
+    bool authorized = true,
+  }) async {
+    try {
+      if (authorized) {
+        await ensureTokenLoaded();
+      }
+      final url = Uri.parse('$_baseUrl/$endpoint');
+      final headers = await _getHeaders(authorized: authorized);
+      final response = await http.put(
+        url,
+        headers: headers,
+        body: json.encode(data),
+      );
+      final responseData = json.decode(response.body) as Map<String, dynamic>;
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return {
+          'status': true,
+          'data': responseData['data'],
+          'message': responseData['message'] ?? 'Succès',
+        };
+      } else {
+        String errorMessage = responseData['message'] ?? 'Erreur du serveur.';
+        if (responseData['errors'] != null && responseData['errors'] is Map) {
+          responseData['errors'].forEach((key, value) {
+            if (value is List) {
+              errorMessage += '\n- ${value.join(", ")}';
+            }
+          });
+        }
+        return {
+          'status': false,
+          'message': errorMessage,
+          'status_code': response.statusCode,
+        };
+      }
+    } on http.ClientException catch (e) {
+      print('ApiService: Erreur réseau ClientException pour $endpoint: $e');
+      return {
+        'status': false,
+        'message': 'Erreur réseau. Impossible de se connecter au serveur.',
+      };
+    } catch (e) {
+      print('ApiService: Erreur inattendue pour $endpoint: $e');
+      return {
+        'status': false,
+        'message': 'Une erreur inattendue est survenue.',
+      };
+    }
+  }
+
+  /// Récupère le lien de paiement pour un ticket donné
+  Future<Map<String, dynamic>> getPaymentLink(String ticketId) async {
+    try {
+      await ensureTokenLoaded();
+      final url = Uri.parse('$_baseUrl/tickets/$ticketId/payment-link');
+      final headers = await _getHeaders(authorized: true);
+      final response = await http.get(url, headers: headers);
+      print(
+        'ApiService: GET payment-link (Status: \\${response.statusCode}): \\${response.body}',
+      );
+      final responseData = json.decode(response.body) as Map<String, dynamic>;
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return {
+          'success': true,
+          'url': responseData['data']?['url'],
+          'message': responseData['message'] ?? 'Lien de paiement généré',
+        };
+      } else {
+        String errorMessage =
+            responseData['message'] ??
+            'Erreur lors de la génération du lien de paiement.';
+        return {
+          'success': false,
+          'message': errorMessage,
+          'status_code': response.statusCode,
+        };
+      }
+    } on http.ClientException catch (e) {
+      print('ApiService: Erreur réseau ClientException pour payment-link: $e');
+      return {
+        'success': false,
+        'message': 'Erreur réseau. Impossible de se connecter au serveur.',
+      };
+    } catch (e) {
+      print('ApiService: Erreur inattendue pour payment-link: $e');
+      return {
+        'success': false,
+        'message': 'Une erreur inattendue est survenue.',
+      };
+    }
+  }
+
+  Future<Map<String, dynamic>> getTechnicianDashboardData() async {
+    try {
+      await ensureTokenLoaded();
+      final url = Uri.parse('$_baseUrl/read');
+      final headers = await _getHeaders(authorized: true);
+      final response = await http.get(url, headers: headers);
+
+      print(
+        'ApiService: GET read (Status: ${response.statusCode}): ${response.body}',
+      );
+
+      final responseData = json.decode(response.body) as Map<String, dynamic>;
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return {
+          'success': true,
+          'data': responseData,
+          'message':
+              responseData['message'] ?? 'Données récupérées avec succès',
+        };
+      } else {
+        String errorMessage =
+            responseData['message'] ??
+            'Erreur lors de la récupération des données.';
+        return {
+          'success': false,
+          'message': errorMessage,
+          'status_code': response.statusCode,
+        };
+      }
+    } on http.ClientException catch (e) {
+      print('ApiService: Erreur réseau ClientException pour read: $e');
+      return {
+        'success': false,
+        'message': 'Erreur réseau. Impossible de se connecter au serveur.',
+      };
+    } catch (e) {
+      print('ApiService: Erreur inattendue pour read: $e');
+      return {
+        'success': false,
+        'message': 'Une erreur inattendue est survenue.',
+      };
+    }
   }
 }
