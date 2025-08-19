@@ -130,44 +130,62 @@ class _DetailsTicketScreenState extends State<DetailsTicketScreen> {
                               backgroundColor: Colors.blue,
                               foregroundColor: Colors.white,
                               padding: const EdgeInsets.symmetric(vertical: 14),
-                              textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                              textStyle: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                             onPressed: () async {
                               showDialog(
                                 context: context,
                                 barrierDismissible: false,
-                                builder: (ctx) => const Center(child: CircularProgressIndicator()),
+                                builder:
+                                    (ctx) => const Center(
+                                      child: CircularProgressIndicator(),
+                                    ),
                               );
-                              final result = await ApiService().getPaymentLink(ticket.id);
+                              final result = await ApiService().getPaymentLink(
+                                ticket.id,
+                              );
                               Navigator.of(context).pop(); // Remove loading
-                              if (result['success'] == true && result['url'] != null) {
+                              if (result['success'] == true &&
+                                  result['url'] != null) {
                                 showDialog(
                                   context: context,
-                                  builder: (ctx) => AlertDialog(
-                                    title: const Text('Lien de paiement'),
-                                    content: SelectableText(result['url']),
-                                    actions: [
-                                      TextButton(
-                                        onPressed: () => Navigator.of(ctx).pop(),
-                                        child: const Text('Fermer'),
+                                  builder:
+                                      (ctx) => AlertDialog(
+                                        title: const Text('Lien de paiement'),
+                                        content: SelectableText(result['url']),
+                                        actions: [
+                                          TextButton(
+                                            onPressed:
+                                                () => Navigator.of(ctx).pop(),
+                                            child: const Text('Fermer'),
+                                          ),
+                                          ElevatedButton(
+                                            onPressed: () async {
+                                              final url = result['url'];
+                                              Navigator.of(ctx).pop();
+                                              // ignore: deprecated_member_use
+                                              await Future.delayed(
+                                                const Duration(
+                                                  milliseconds: 100,
+                                                ),
+                                              );
+                                              // Use url_launcher if available
+                                            },
+                                            child: const Text('Ouvrir'),
+                                          ),
+                                        ],
                                       ),
-                                      ElevatedButton(
-                                        onPressed: () async {
-                                          final url = result['url'];
-                                          Navigator.of(ctx).pop();
-                                          // ignore: deprecated_member_use
-                                          await Future.delayed(const Duration(milliseconds: 100));
-                                          // Use url_launcher if available
-                                        },
-                                        child: const Text('Ouvrir'),
-                                      ),
-                                    ],
-                                  ),
                                 );
                               } else {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
-                                    content: Text(result['message'] ?? 'Erreur lors de la génération du lien de paiement'),
+                                    content: Text(
+                                      result['message'] ??
+                                          'Erreur lors de la génération du lien de paiement',
+                                    ),
                                     backgroundColor: Colors.red,
                                   ),
                                 );

@@ -17,16 +17,27 @@ class TechnicianDashboardData {
 
   factory TechnicianDashboardData.fromJson(Map<String, dynamic> json) {
     return TechnicianDashboardData(
-      dashboardSummary: DashboardSummary.fromJson(json['dashboard_summary'] ?? {}),
-      activeTicket: json['active_ticket'] != null 
-          ? _parseTicketFromBackend(json['active_ticket'] as Map<String, dynamic>)
-          : null,
-      recentTickets: (json['recent_tickets'] as List<dynamic>? ?? [])
-          .map((item) => _parseTicketFromBackend(item as Map<String, dynamic>))
-          .toList(),
-      allTickets: (json['all_tickets'] as List<dynamic>? ?? [])
-          .map((item) => _parseTicketFromBackend(item as Map<String, dynamic>))
-          .toList(),
+      dashboardSummary: DashboardSummary.fromJson(
+        json['dashboard_summary'] ?? {},
+      ),
+      activeTicket:
+          json['active_ticket'] != null
+              ? _parseTicketFromBackend(
+                json['active_ticket'] as Map<String, dynamic>,
+              )
+              : null,
+      recentTickets:
+          (json['recent_tickets'] as List<dynamic>? ?? [])
+              .map(
+                (item) => _parseTicketFromBackend(item as Map<String, dynamic>),
+              )
+              .toList(),
+      allTickets:
+          (json['all_tickets'] as List<dynamic>? ?? [])
+              .map(
+                (item) => _parseTicketFromBackend(item as Map<String, dynamic>),
+              )
+              .toList(),
     );
   }
 
@@ -37,6 +48,8 @@ class TechnicianDashboardData {
       switch (statusStr.toLowerCase()) {
         case 'pending':
           return TicketStatus.pending;
+        case 'assign':
+          return TicketStatus.assign;
         case 'in_progress':
           return TicketStatus.inProgress;
         case 'completed':
@@ -66,14 +79,24 @@ class TechnicianDashboardData {
 
     return Ticket(
       id: json['id'].toString(),
-      title: json['title'] as String? ?? json['type_probleme'] as String? ?? 'Sans titre',
+      title:
+          json['title'] as String? ??
+          json['type_probleme'] as String? ??
+          'Sans titre',
       description: json['description'] as String? ?? '',
       location: json['location'] as String? ?? json['adresse'] as String? ?? '',
-      clientName: json['assigned_to'] as String? ?? json['client_name'] as String? ?? 'Client inconnu',
+      clientName:
+          json['assigned_to'] as String? ??
+          json['client_name'] as String? ??
+          'Client inconnu',
+      clientId: json['client_id']?.toString() ?? '',
       scheduledTime: _parseScheduledTime(json),
       status: parseStatus(json['status'] as String?),
       priority: parsePriority(json['priority'] as String?),
-      distance: json['distance'] != null ? (json['distance'] as num).toDouble() : null,
+      distance:
+          json['distance'] != null
+              ? (json['distance'] as num).toDouble()
+              : null,
       technicianName: json['technician_name'] as String?,
       photoBase64: json['photo_base64'] as String?,
     );
@@ -88,7 +111,7 @@ class TechnicianDashboardData {
         // Fallback
       }
     }
-    
+
     // Essayer avec scheduled_time
     if (json['scheduled_time'] != null) {
       try {
@@ -97,7 +120,7 @@ class TechnicianDashboardData {
         // Fallback
       }
     }
-    
+
     // Si on a juste une heure (format "HH:mm")
     if (json['time'] != null) {
       try {
@@ -107,7 +130,7 @@ class TechnicianDashboardData {
           final now = DateTime.now();
           return DateTime(
             now.year,
-            now.month, 
+            now.month,
             now.day,
             int.parse(parts[0]),
             int.parse(parts[1]),
@@ -117,7 +140,7 @@ class TechnicianDashboardData {
         // Fallback
       }
     }
-    
+
     // Fallback sur l'heure actuelle
     return DateTime.now();
   }

@@ -44,8 +44,9 @@ class TicketCreateRequested extends TicketEvent {
   final String typeProbleme;
   final String description;
   final String adresse;
-  final DateTime dateRdv;
+  final String dateRdv;
   final List<String> photosBase64;
+  final String? time;
 
   const TicketCreateRequested({
     required this.typeProbleme,
@@ -53,14 +54,16 @@ class TicketCreateRequested extends TicketEvent {
     required this.adresse,
     required this.dateRdv,
     required this.photosBase64,
+    this.time,
   });
 
   @override
-  List<Object> get props => [
+  List<Object?> get props => [
         typeProbleme,
         description,
         adresse,
         dateRdv,
         photosBase64,
+        time,
       ];
 }

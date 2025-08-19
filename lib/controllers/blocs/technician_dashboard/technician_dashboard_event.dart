@@ -28,3 +28,12 @@ class TechnicianEndInterventionRequested extends TechnicianDashboardEvent {
   @override
   List<Object> get props => [ticketId];
 }
+
+class TechnicianTakeChargeRequested extends TechnicianDashboardEvent {
+  final String ticketId;
+
+  const TechnicianTakeChargeRequested({required this.ticketId});
+
+  @override
+  List<Object> get props => [ticketId];
+}

@@ -8,7 +8,10 @@ import 'package:omeamobile/models/ticket_model.dart';
 
 class ApiService {
   static const String _baseUrl = 'http://127.0.0.1:8000/api';
+  // static const String _baseUrl = 'http://192.168.1.74:8000/api';
+  // static const String _baseUrl = 'http://192.168.1.65:8000/api';
   // static const String _baseUrl = 'http://10.0.2.2:8000/api';
+
   static const String _authTokenKey = 'authToken';
 
   String? _authToken;
@@ -577,6 +580,60 @@ class ApiService {
       print('ApiService: Erreur inattendue pour remove-profile-image: $e');
       return {
         'success': false,
+        'message': 'Une erreur inattendue est survenue.',
+      };
+    }
+  }
+
+  /// Generic PUT method for updating resources
+  Future<Map<String, dynamic>> put(
+    String endpoint, {
+    required Map<String, dynamic> data,
+    bool authorized = true,
+  }) async {
+    try {
+      if (authorized) {
+        await ensureTokenLoaded();
+      }
+      final url = Uri.parse('$_baseUrl/$endpoint');
+      final headers = await _getHeaders(authorized: authorized);
+      final response = await http.put(
+        url,
+        headers: headers,
+        body: json.encode(data),
+      );
+      final responseData = json.decode(response.body) as Map<String, dynamic>;
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return {
+          'status': true,
+          'data': responseData['data'],
+          'message': responseData['message'] ?? 'Succès',
+        };
+      } else {
+        String errorMessage = responseData['message'] ?? 'Erreur du serveur.';
+        if (responseData['errors'] != null && responseData['errors'] is Map) {
+          responseData['errors'].forEach((key, value) {
+            if (value is List) {
+              errorMessage += '\n- ${value.join(", ")}';
+            }
+          });
+        }
+        return {
+          'status': false,
+          'message': errorMessage,
+          'status_code': response.statusCode,
+        };
+      }
+    } on http.ClientException catch (e) {
+      print('ApiService: Erreur réseau ClientException pour $endpoint: $e');
+      return {
+        'status': false,
+        'message': 'Erreur réseau. Impossible de se connecter au serveur.',
+      };
+    } catch (e) {
+      print('ApiService: Erreur inattendue pour $endpoint: $e');
+      return {
+        'status': false,
         'message': 'Une erreur inattendue est survenue.',
       };
     }

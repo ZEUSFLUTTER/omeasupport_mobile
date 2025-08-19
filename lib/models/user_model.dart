@@ -2,14 +2,14 @@
 
 class User {
   final int id;
-  final String nom; // Changé de 'name'
-  final String prenom; // Nouveau champ
+  final String nom;
+  final String prenom;
   final String email;
-  final String telephone; // Nouveau champ
-  final String pays; // Nouveau champ
-  final String ville; // Nouveau champ
-  final String role; // 'client' ou 'technician'
-  final String? photoProfileUrl; // Changé de 'profilePictureUrl', nullable
+  final String telephone;
+  final String pays;
+  final String ville;
+  final String role;
+  final String? photoProfileUrl;
 
   User({
     required this.id,
@@ -26,18 +26,13 @@ class User {
   factory User.fromJson(Map<String, dynamic> json) {
     return User(
       id: json['id'] as int,
-      nom: json['nom'] as String, // Assurez-vous que Laravel renvoie 'nom'
-      prenom:
-          json['prenom'] as String, // Assurez-vous que Laravel renvoie 'prenom'
+      nom: json['nom'] as String,
+      prenom: json['prenom'] as String,
       email: json['email'] as String,
-      telephone:
-          json['telephone']
-              as String, // Assurez-vous que Laravel renvoie 'telephone'
-      pays: json['pays'] as String, // Assurez-vous que Laravel renvoie 'pays'
-      ville:
-          json['ville'] as String, // Assurez-vous que Laravel renvoie 'ville'
+      telephone: json['telephone'] as String,
+      pays: json['pays'] as String,
+      ville: json['ville'] as String,
       role: json['role'] as String,
-      // 'photo_profile' est le nom de colonne Laravel, 'photoProfileUrl' est votre propriété Flutter
       photoProfileUrl: json['photo_profile'] as String?,
     );
   }

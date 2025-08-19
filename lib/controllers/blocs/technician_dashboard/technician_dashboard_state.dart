@@ -40,3 +40,10 @@ class TechnicianDashboardError extends TechnicianDashboardState {
   @override
   List<Object> get props => [message];
 }
+
+class TechnicianDashboardInterventionStarted extends TechnicianDashboardState {
+  final dynamic ticket;
+  const TechnicianDashboardInterventionStarted({required this.ticket});
+  @override
+  List<Object?> get props => [ticket];
+}

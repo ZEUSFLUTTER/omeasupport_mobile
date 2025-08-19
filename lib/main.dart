@@ -13,6 +13,11 @@ import 'package:omeamobile/services/ticket_service.dart';
 import 'package:omeamobile/views/auth/login_screen.dart';
 import 'package:omeamobile/views/dashboard/client_dashboard_screen.dart';
 import 'package:omeamobile/views/dashboard/technician_dashboard_screen.dart';
+import 'package:omeamobile/views/tickets/details_ticket.dart';
+import 'package:omeamobile/views/tickets/intervention.dart';
+import 'package:omeamobile/views/tickets/rapport.dart';
+import 'package:omeamobile/views/tickets/ending_details.dart';
+import 'package:omeamobile/models/ticket_model.dart';
 
 void main() {
   runApp(const MyApp());
@@ -49,7 +54,8 @@ class MyApp extends StatelessWidget {
             create: (context) => ProfileBloc(apiService: apiService),
           ),
           BlocProvider(
-            create: (context) => TechnicianDashboardBloc(apiService: apiService),
+            create:
+                (context) => TechnicianDashboardBloc(apiService: apiService),
           ),
         ],
         child: MaterialApp(
@@ -130,6 +136,60 @@ class MyApp extends StatelessWidget {
               ),
             ),
           ),
+          onGenerateRoute: (settings) {
+            if (settings.name == '/details_ticket') {
+              final ticket = settings.arguments as Ticket;
+              return MaterialPageRoute(
+                builder: (context) => DetailsTicketScreen(ticket: ticket),
+              );
+            }
+            if (settings.name == '/intervention') {
+              final ticket = settings.arguments as Ticket;
+              return MaterialPageRoute(
+                builder: (context) => InterventionScreen(ticket: ticket),
+              );
+            }
+            if (settings.name == '/rapport') {
+              final args = settings.arguments;
+              if (args is Map) {
+                final ticket = args['ticket'] as Ticket;
+                final heureDebut = args['heure_debut'] as String;
+                final heureFin = args['heure_fin'] as String;
+                return MaterialPageRoute(
+                  builder:
+                      (context) => RapportScreen(
+                        ticket: ticket,
+                        heureDebut: heureDebut,
+                        heureFin: heureFin,
+                      ),
+                );
+              } else if (args is Ticket) {
+                // fallback: if only Ticket is passed
+                return MaterialPageRoute(
+                  builder:
+                      (context) => RapportScreen(
+                        ticket: args,
+                        heureDebut: '',
+                        heureFin: '',
+                      ),
+                );
+              }
+            }
+            if (settings.name == '/ending_details') {
+              final args = settings.arguments;
+              if (args is Map) {
+                final ticket = args['ticket'];
+                final rapport = args['rapport'];
+                return MaterialPageRoute(
+                  builder:
+                      (context) =>
+                          EndingDetailsScreen(ticket: ticket, rapport: rapport),
+                );
+              }
+            }
+            // Default fallback: return null to use home
+            return null;
+          },
           home: BlocBuilder<AuthBloc, AuthState>(
             builder: (context, state) {
               if (state is AuthLoading) {

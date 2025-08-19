@@ -115,11 +115,7 @@ class _TicketsScreenState extends State<TicketsScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  Icons.error_outline,
-                  size: 64,
-                  color: Colors.grey[400],
-                ),
+                Icon(Icons.error_outline, size: 64, color: Colors.grey[400]),
                 const SizedBox(height: 16),
                 Text(
                   'Erreur de chargement',
@@ -227,10 +223,10 @@ class _TicketsScreenState extends State<TicketsScreen> {
   ) {
     // Détermination de la couleur de priorité
     Color priorityColor = _getPriorityColor(ticket.priority);
-    
+
     // Détermination du statut et des couleurs
     final statusConfig = _getStatusConfig(ticket.status);
-    
+
     // Détermination du bouton d'action
     final buttonConfig = _getButtonConfig(ticket.status, ticket.id);
 
@@ -301,17 +297,14 @@ class _TicketsScreenState extends State<TicketsScreen> {
               ],
             ),
             const SizedBox(height: 12),
-            
+
             // Titre du ticket
             Text(
               ticket.title,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
-            
+
             // Informations du client
             Row(
               children: [
@@ -324,7 +317,7 @@ class _TicketsScreenState extends State<TicketsScreen> {
               ],
             ),
             const SizedBox(height: 4),
-            
+
             // Localisation
             Row(
               children: [
@@ -344,7 +337,7 @@ class _TicketsScreenState extends State<TicketsScreen> {
               ],
             ),
             const SizedBox(height: 4),
-            
+
             // Heure et bouton d'action
             Row(
               children: [
@@ -359,7 +352,8 @@ class _TicketsScreenState extends State<TicketsScreen> {
                   SizedBox(
                     height: 32,
                     child: ElevatedButton(
-                      onPressed: isActionLoading ? null : buttonConfig.onPressed,
+                      onPressed:
+                          isActionLoading ? null : buttonConfig.onPressed,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: buttonConfig.color,
                         foregroundColor: Colors.white,
@@ -369,16 +363,19 @@ class _TicketsScreenState extends State<TicketsScreen> {
                         ),
                         textStyle: const TextStyle(fontSize: 12),
                       ),
-                      child: isActionLoading
-                          ? const SizedBox(
-                              width: 14,
-                              height: 14,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                              ),
-                            )
-                          : Text(buttonConfig.text),
+                      child:
+                          isActionLoading
+                              ? const SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    Colors.white,
+                                  ),
+                                ),
+                              )
+                              : Text(buttonConfig.text),
                     ),
                   ),
               ],
@@ -407,6 +404,12 @@ class _TicketsScreenState extends State<TicketsScreen> {
       case TicketStatus.pending:
         return _StatusConfig(
           text: 'PENDING',
+          bgColor: Colors.blue.shade100,
+          textColor: Colors.blue.shade700,
+        );
+      case TicketStatus.assign:
+        return _StatusConfig(
+          text: 'ASSIGNÉ',
           bgColor: Colors.blue.shade100,
           textColor: Colors.blue.shade700,
         );
@@ -445,6 +448,18 @@ class _TicketsScreenState extends State<TicketsScreen> {
             }
           },
         );
+      case TicketStatus.assign:
+        return _ButtonConfig(
+          text: 'Commencer',
+          color: Colors.blue.shade700,
+          onPressed: () {
+            if (mounted) {
+              context.read<TicketBloc>().add(
+                TicketStartInterventionRequested(ticketId: ticketId),
+              );
+            }
+          },
+        );
       case TicketStatus.inProgress:
         return _ButtonConfig(
           text: 'Terminer',
@@ -461,8 +476,7 @@ class _TicketsScreenState extends State<TicketsScreen> {
         return _ButtonConfig(
           text: 'Détails',
           color: Colors.green.shade700,
-          onPressed: () {
-          },
+          onPressed: () {},
         );
       case TicketStatus.cancelled:
         return null; // Pas de bouton pour les tickets annulés

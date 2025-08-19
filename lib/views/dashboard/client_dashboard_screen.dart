@@ -440,8 +440,14 @@ class _DashboardContentState extends State<_DashboardContent>
         statusTextColor = Colors.red.shade700;
         icon = Icons.print_outlined;
         break;
+      case TicketStatus.assign:
+        statusText = 'Affecté';
+        statusBgColor = Colors.red.shade100;
+        statusTextColor = const Color.fromARGB(255, 100, 15, 75);
+        icon = Icons.print_outlined;
+        break;
       case TicketStatus.completed:
-        statusText = 'Planifié';
+        statusText = 'Terminé';
         statusBgColor = Colors.blue.shade100;
         statusTextColor = Colors.blue.shade700;
         icon = Icons.wifi_outlined;

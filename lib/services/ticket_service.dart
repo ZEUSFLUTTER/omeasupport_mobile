@@ -28,14 +28,14 @@ class TicketService {
     required String typeProbleme,
     required String description,
     required String adresse,
-    required DateTime dateRdv,
+    required String dateRdv,
     List<String>? photosBase64,
   }) async {
     final result = await _apiService.createTicket(
       typeProbleme: typeProbleme,
       description: description,
       adresse: adresse,
-      dateRdv: dateRdv.toIso8601String().split('T').first,
+      dateRdv: dateRdv, // Passe la date et l'heure telles quelles
       photosBase64: photosBase64,
     );
 
@@ -84,6 +84,24 @@ class TicketService {
       return true;
     } else {
       throw Exception(result['message'] ?? 'Failed to take charge of ticket');
+    }
+  }
+
+  /// Soumet un rapport pour un ticket donné.
+  Future<Map<String, dynamic>> submitRapport({
+    required String ticketId,
+    required Map<String, dynamic> rapportData,
+  }) async {
+    final result = await _apiService.put(
+      '/tickets/$ticketId/rapport',
+      data: rapportData,
+    );
+    if (result['status'] == true) {
+      return result;
+    } else {
+      throw Exception(
+        result['message'] ?? 'Erreur lors de l\'envoi du rapport',
+      );
     }
   }
 }

@@ -27,6 +27,8 @@ class _NewTicketScreenState extends State<NewTicketScreen> {
   final TextEditingController _addressController = TextEditingController();
   final TextEditingController _dateRdvController = TextEditingController();
 
+  String? _selectedTime; // Ajouté pour stocker l'heure HH:mm
+
   final List<XFile> _selectedPhotos = [];
 
   final ImagePicker _picker = ImagePicker();
@@ -73,8 +75,9 @@ class _NewTicketScreenState extends State<NewTicketScreen> {
         );
         setState(() {
           _dateRdvController.text = DateFormat(
-            'yyyy-MM-dd HH:mm',
+            'yyyy-MM-dd HH:mm:ss',
           ).format(fullDateTime);
+          _selectedTime = DateFormat('HH:mm').format(fullDateTime); // Stocke l'heure
         });
       }
     }
@@ -96,13 +99,16 @@ class _NewTicketScreenState extends State<NewTicketScreen> {
         photosBase64.add(base64Encode(imageBytes));
       }
 
+      // Formater la date et l'heure au format yyyy-MM-dd HH:mm:ss
+      final String dateRdvFormatted = DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.parse(_dateRdvController.text));
       context.read<TicketBloc>().add(
         TicketCreateRequested(
           typeProbleme: _titleController.text.trim(),
           description: _descriptionController.text.trim(),
           adresse: _addressController.text.trim(),
-          dateRdv: DateTime.parse(_dateRdvController.text),
+          dateRdv: dateRdvFormatted, // Envoie la date et l'heure formatées
           photosBase64: photosBase64,
+          time: _selectedTime, // Envoie l'heure au backend (optionnel)
         ),
       );
     }
